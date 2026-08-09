@@ -1,26 +1,42 @@
 <?php
 /**
- * Plugin Name: On-Model Commerce
- * Description: Customer-facing WooCommerce project dashboard and production statuses for On-Model Content.
- * Version: 0.4.4
+ * Plugin Name: Style by REii Commerce
+ * Description: WooCommerce ordering, production, and private delivery for Style by REii shoppable videos.
+ * Version: 0.5.6
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
+ * Update URI: https://github.com/whoisleon/on-model-commerce
  */
 
 defined( 'ABSPATH' ) || exit;
 
+// The GitHub-enabled build intentionally uses a new permanent directory to
+// escape legacy WordPress.com folders that cannot be overwritten. If an older
+// copy is still active during the one-time migration, deactivate that file and
+// let this copy take over on the next request instead of triggering a duplicate
+// class fatal error.
+if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
+	if ( is_admin() && function_exists( 'deactivate_plugins' ) ) {
+		foreach ( (array) get_option( 'active_plugins', array() ) as $active_plugin ) {
+			if ( plugin_basename( __FILE__ ) !== $active_plugin && 'on-model-commerce.php' === basename( $active_plugin ) ) {
+				deactivate_plugins( $active_plugin, true );
+			}
+		}
+	}
+	return;
+}
+
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.4.4';
+	const VERSION     = '0.5.6';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
+	const BASE_PRICE  = '20';
+	const GITHUB_REPOSITORY = 'whoisleon/on-model-commerce';
+	const UPDATE_CACHE_KEY  = 'aip_on_model_github_release';
 
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_order_statuses' ) );
-		add_action( 'wp', array( __CLASS__, 'replace_account_dashboard' ) );
 		add_filter( 'wc_order_statuses', array( __CLASS__, 'order_status_labels' ) );
-		add_filter( 'woocommerce_account_menu_items', array( __CLASS__, 'account_menu' ) );
-		add_filter( 'woocommerce_account_dashboard', '__return_empty_string', 1 );
-		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'account_styles' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'checkout_bridge_script' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'fast_checkout_styles' ) );
 		add_filter( 'body_class', array( __CLASS__, 'fast_checkout_body_class' ) );
@@ -33,12 +49,127 @@ final class AIP_On_Model_Commerce {
 		add_filter( 'wpcf7_skip_mail', array( __CLASS__, 'skip_intake_email' ), 10, 2 );
 		add_filter( 'woocommerce_checkout_get_value', array( __CLASS__, 'prefill_checkout_value' ), 10, 2 );
 		add_filter( 'woocommerce_get_item_data', array( __CLASS__, 'cart_item_details' ), 10, 2 );
+		add_action( 'woocommerce_before_calculate_totals', array( __CLASS__, 'apply_addon_price' ), 20 );
 		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'copy_intake_to_order_item' ), 10, 4 );
 		add_filter( 'woocommerce_order_item_get_formatted_meta_data', array( __CLASS__, 'filter_order_item_display_meta' ), 10, 2 );
 		add_filter( 'woocommerce_order_item_name', array( __CLASS__, 'add_item_thumbnail_to_confirmation' ), 10, 3 );
 		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'apply_intake_to_order' ), 10, 2 );
 		add_action( 'rest_api_init', array( __CLASS__, 'register_order_api' ) );
-		add_action( 'woocommerce_order_details_after_order_table', array( __CLASS__, 'delivery_preview' ) );
+		add_action( 'woocommerce_email_after_order_table', array( __CLASS__, 'email_delivery_links' ), 20, 4 );
+		add_filter( 'woocommerce_email_subject_customer_completed_order', array( __CLASS__, 'custom_completed_email_subject' ), 10, 2 );
+		add_filter( 'woocommerce_email_heading_customer_completed_order', array( __CLASS__, 'custom_completed_email_heading' ), 10, 2 );
+		add_filter( 'gettext', array( __CLASS__, 'customize_email_gettext' ), 20, 3 );
+		add_action( 'template_redirect', array( __CLASS__, 'passwordless_delivery_request' ), 1 );
+		add_action( 'add_meta_boxes', array( __CLASS__, 'add_admin_order_meta_boxes' ), 10, 2 );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_order_assets' ) );
+		add_action( 'wp_ajax_aip_admin_update_order_status', array( __CLASS__, 'ajax_update_order_status' ) );
+		add_action( 'wp_ajax_aip_admin_deliver_order', array( __CLASS__, 'ajax_deliver_order' ) );
+		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'github_update_transient' ) );
+		add_filter( 'plugins_api', array( __CLASS__, 'github_plugin_information' ), 20, 3 );
+		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_github_update_cache' ), 10, 2 );
+	}
+
+	private static function github_release() {
+		$cached = get_site_transient( self::UPDATE_CACHE_KEY );
+		if ( 'none' === $cached ) {
+			return false;
+		}
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$response = wp_remote_get(
+			'https://api.github.com/repos/' . self::GITHUB_REPOSITORY . '/releases/latest',
+			array(
+				'headers' => array(
+					'Accept'     => 'application/vnd.github+json',
+					'User-Agent' => 'Tech-by-Leon-On-Model-Commerce/' . self::VERSION,
+				),
+				'timeout' => 10,
+			)
+		);
+		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			set_site_transient( self::UPDATE_CACHE_KEY, 'none', HOUR_IN_SECONDS );
+			return false;
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		$tag  = is_array( $data ) ? (string) ( $data['tag_name'] ?? '' ) : '';
+		if ( ! preg_match( '/^v(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/', $tag, $matches ) ) {
+			set_site_transient( self::UPDATE_CACHE_KEY, 'none', HOUR_IN_SECONDS );
+			return false;
+		}
+
+		$package = '';
+		foreach ( (array) ( $data['assets'] ?? array() ) as $asset ) {
+			if ( 'on-model-commerce.zip' === ( $asset['name'] ?? '' ) ) {
+				$package = esc_url_raw( (string) ( $asset['browser_download_url'] ?? '' ) );
+				break;
+			}
+		}
+		if ( ! $package ) {
+			set_site_transient( self::UPDATE_CACHE_KEY, 'none', HOUR_IN_SECONDS );
+			return false;
+		}
+
+		$release = array(
+			'version'      => $matches[1],
+			'package'      => $package,
+			'url'          => esc_url_raw( (string) ( $data['html_url'] ?? 'https://github.com/' . self::GITHUB_REPOSITORY ) ),
+			'body'         => wp_kses_post( (string) ( $data['body'] ?? '' ) ),
+			'published_at' => sanitize_text_field( (string) ( $data['published_at'] ?? '' ) ),
+		);
+		set_site_transient( self::UPDATE_CACHE_KEY, $release, 6 * HOUR_IN_SECONDS );
+		return $release;
+	}
+
+	public static function github_update_transient( $transient ) {
+		if ( ! is_object( $transient ) || empty( $transient->checked ) ) {
+			return $transient;
+		}
+		$release = self::github_release();
+		if ( ! $release || ! version_compare( self::VERSION, $release['version'], '<' ) ) {
+			return $transient;
+		}
+		$plugin_file = plugin_basename( __FILE__ );
+		$transient->response[ $plugin_file ] = (object) array(
+			'slug'        => 'on-model-commerce-github',
+			'plugin'      => $plugin_file,
+			'new_version' => $release['version'],
+			'url'         => $release['url'],
+			'package'     => $release['package'],
+			'tested'      => get_bloginfo( 'version' ),
+		);
+		return $transient;
+	}
+
+	public static function github_plugin_information( $result, $action, $args ) {
+		if ( 'plugin_information' !== $action || empty( $args->slug ) || 'on-model-commerce-github' !== $args->slug ) {
+			return $result;
+		}
+		$release = self::github_release();
+		if ( ! $release ) {
+			return $result;
+		}
+		return (object) array(
+			'name'          => 'Style by REii Commerce',
+			'slug'          => 'on-model-commerce-github',
+			'version'       => $release['version'],
+			'author'        => '<a href="https://techbyleon.com">Tech by Leon</a>',
+			'homepage'      => $release['url'],
+			'download_link' => $release['package'],
+			'last_updated'  => $release['published_at'],
+			'sections'      => array(
+				'description' => 'Customer-facing WooCommerce project dashboard, production workflow, and private client delivery library.',
+				'changelog'   => $release['body'] ?: 'See the GitHub release for changes.',
+			),
+		);
+	}
+
+	public static function clear_github_update_cache( $upgrader, $options ) {
+		if ( isset( $options['action'], $options['type'] ) && 'update' === $options['action'] && 'plugin' === $options['type'] ) {
+			delete_site_transient( self::UPDATE_CACHE_KEY );
+		}
 	}
 
 	public static function register_order_api() {
@@ -124,8 +255,16 @@ final class AIP_On_Model_Commerce {
 				);
 			}
 		}
-		$submitted_at = $order->get_meta( '_aip_intake_submitted_at' );
-		$created_at   = $order->get_date_created() ? $order->get_date_created()->date( DATE_ATOM ) : null;
+		$submitted_at       = $order->get_meta( '_aip_intake_submitted_at' );
+		$created_at         = $order->get_date_created() ? $order->get_date_created()->date( DATE_ATOM ) : null;
+		$deliverables       = $order->get_meta( '_aip_deliverables' );
+		$deliverables       = is_array( $deliverables ) ? $deliverables : array();
+		$client_submitted_at = isset( $deliverables['delivered_at'] ) ? $deliverables['delivered_at'] : null;
+		$download_stats      = $order->get_meta( '_aip_download_stats' );
+		$download_stats      = is_array( $download_stats ) ? $download_stats : array();
+		if ( $client_submitted_at && false === strpos( $client_submitted_at, 'T' ) ) {
+			$client_submitted_at = get_date_from_gmt( $client_submitted_at, DATE_ATOM );
+		}
 		return array(
 			'id'            => $order->get_id(),
 			'number'        => $order->get_order_number(),
@@ -133,6 +272,8 @@ final class AIP_On_Model_Commerce {
 			'status_label'  => wc_get_order_status_name( $order->get_status() ),
 			'created_at'    => $created_at,
 			'submitted_at'  => $submitted_at ?: $created_at,
+			'client_submitted_at' => $client_submitted_at,
+			'download_stats' => $download_stats,
 			'customer_name' => trim( $order->get_formatted_billing_full_name() ) ?: 'Customer',
 			'email'         => $order->get_billing_email(),
 			'total'         => html_entity_decode( wp_strip_all_tags( $order->get_formatted_order_total() ), ENT_QUOTES, 'UTF-8' ),
@@ -141,7 +282,7 @@ final class AIP_On_Model_Commerce {
 			'notes'         => $notes,
 			'uploaded_files' => array_slice( $uploaded_files, 0, 4 ),
 			'items'         => $items,
-			'deliverables'  => $order->get_meta( '_aip_deliverables' ),
+			'deliverables'  => $deliverables,
 			'edit_url'      => $order->get_edit_order_url(),
 		);
 	}
@@ -217,82 +358,46 @@ final class AIP_On_Model_Commerce {
 			return new WP_Error( 'aip_missing_media', 'An image or video deliverable is required.', array( 'status' => 400 ) );
 		}
 
-		$order->update_meta_data( '_aip_deliverables', array( 'images' => $images, 'videos' => $videos, 'delivered_at' => current_time( 'mysql', true ) ) );
-
-		// 1. Convert deliverables to WooCommerce Downloadable Files
-		$downloadable_files = array();
-		foreach ( $images as $idx => $url ) {
-			$file_id = md5( 'image_' . $idx . '_' . $url );
-			$downloadable_files[ $file_id ] = array(
-				'id'   => $file_id,
-				'name' => 'AI Try-On Image ' . ( $idx + 1 ),
-				'file' => $url,
-			);
-		}
-		foreach ( $videos as $idx => $url ) {
-			$file_id = md5( 'video_' . $idx . '_' . $url );
-			$downloadable_files[ $file_id ] = array(
-				'id'   => $file_id,
-				'name' => 'AI Try-On Video ' . ( $idx + 1 ),
-				'file' => $url,
-			);
-		}
-
-		// 2. Attach downloadable files to product & item & grant WooCommerce permissions
-		foreach ( $order->get_items() as $item_id => $item ) {
-			if ( is_a( $item, 'WC_Order_Item_Product' ) ) {
-				$product = $item->get_product();
-				$wc_downloads = array();
-				foreach ( $downloadable_files as $file_info ) {
-					$download = new WC_Product_Download();
-					$download->set_id( $file_info['id'] );
-					$download->set_name( $file_info['name'] );
-					$download->set_file( $file_info['file'] );
-					$wc_downloads[] = $download;
-				}
-				if ( $product ) {
-					if ( ! $product->is_downloadable() ) {
-						$product->set_downloadable( true );
-					}
-					$product->set_downloads( $wc_downloads );
-					$product->save();
-				}
-
-				// Set downloads on the order line item itself
-				$item->set_downloads( $wc_downloads );
-				$item->save();
-
-				// Grant WooCommerce Downloadable Product Permission explicitly
-				foreach ( $downloadable_files as $file_info ) {
-					if ( function_exists( 'wc_downloadable_add_permission' ) ) {
-						wc_downloadable_add_permission(
-							$file_info['id'],
-							$product ? $product->get_id() : 0,
-							$order,
-							$item->get_quantity()
-						);
-					}
-				}
-			}
-		}
-
-		$order->save();
-
-		// 3. Grant WooCommerce Downloadable Product Permissions to customer's account
-		if ( method_exists( $order, 'grant_download_permissions' ) ) {
-			$order->grant_download_permissions( true );
-		}
-
-		// 4. Update status to completed and trigger WooCommerce Customer Completed Order email
 		$raw_status    = ! empty( $json['status'] ) ? $json['status'] : $request->get_param( 'status' );
 		$target_status = sanitize_key( $raw_status ?: 'completed' );
-		$order->update_status( $target_status, 'Submitted deliverables attached to customer downloads and sent to client.', true );
+		$is_submission = 'completed' === $target_status;
+		$deliverables  = array(
+			'images'       => $images,
+			'videos'       => $videos,
+			'generated_at' => current_time( DATE_ATOM ),
+		);
+		if ( $is_submission ) {
+			$deliverables['delivered_at'] = current_time( DATE_ATOM );
+			$order->update_meta_data( '_aip_delivery_token', wp_generate_password( 48, false, false ) );
+		}
+		$order->update_meta_data( '_aip_deliverables', $deliverables );
+		$raw_brief = isset( $json['brief'] ) && is_array( $json['brief'] ) ? $json['brief'] : array();
+		$brief     = array();
+		foreach ( array( 'model_profile', 'scene', 'lighting', 'format', 'transition', 'video_filter', 'pose' ) as $brief_key ) {
+			if ( isset( $raw_brief[ $brief_key ] ) && is_scalar( $raw_brief[ $brief_key ] ) ) {
+				$brief[ $brief_key ] = sanitize_text_field( (string) $raw_brief[ $brief_key ] );
+			}
+		}
+		if ( $brief ) {
+			$order->update_meta_data( '_aip_delivery_brief', $brief );
+		}
 
-		if ( class_exists( 'WC_Emails' ) ) {
-			$mailer = WC()->mailer();
-			$mails  = $mailer->get_emails();
-			if ( ! empty( $mails['WC_Email_Customer_Completed_Order'] ) ) {
-				$mails['WC_Email_Customer_Completed_Order']->trigger( $order->get_id(), $order );
+		// Deliverables are order-specific. Keep them on the order instead of
+		// rewriting the shared service product's download list, which can break
+		// prior customers and is not required by the portal preview/download UI.
+		$order->save();
+
+		// A transition to completed triggers WooCommerce's customer email. Saving
+		// a generated preview as content-review does not notify the customer.
+		$status_note = $is_submission
+			? 'Submitted deliverables attached to customer downloads and sent to client.'
+			: 'Generated deliverables attached and ready for staff review.';
+		$previous_status = $order->get_status();
+		$order->update_status( $target_status, $status_note, true );
+		if ( $is_submission && $previous_status === $target_status ) {
+			$emails = WC()->mailer()->get_emails();
+			if ( isset( $emails['WC_Email_Customer_Completed_Order'] ) ) {
+				$emails['WC_Email_Customer_Completed_Order']->trigger( $order->get_id(), $order );
 			}
 		}
 
@@ -307,10 +412,10 @@ final class AIP_On_Model_Commerce {
 		?>
 		<section class="aip-delivery-preview">
 			<h2>Your content preview</h2>
-			<p>Review and download the finished image and video below.</p>
+			<p>Review and download the finished Style by REii shoppable video below.</p>
 			<div class="aip-delivery-grid">
 				<?php foreach ( (array) $delivery['images'] as $url ) : ?>
-					<a href="<?php echo esc_url( $url ); ?>" download><img src="<?php echo esc_url( $url ); ?>" alt="Generated on-model preview"></a>
+					<a href="<?php echo esc_url( $url ); ?>" download><img src="<?php echo esc_url( $url ); ?>" alt="Generated product-video preview"></a>
 				<?php endforeach; ?>
 				<?php foreach ( (array) $delivery['videos'] as $url ) : ?>
 					<video controls playsinline preload="metadata" src="<?php echo esc_url( $url ); ?>"></video>
@@ -318,6 +423,317 @@ final class AIP_On_Model_Commerce {
 			</div>
 		</section>
 		<?php
+	}
+
+	public static function email_delivery_links( $order, $sent_to_admin, $plain_text, $email ) {
+		if ( $sent_to_admin || ! $order instanceof WC_Order || ! $email instanceof WC_Email ) {
+			return;
+		}
+		if ( 'customer_completed_order' !== $email->id ) {
+			return;
+		}
+
+		$delivery = $order->get_meta( '_aip_deliverables' );
+		if (
+			! is_array( $delivery )
+			|| empty( $delivery['delivered_at'] )
+			|| ( empty( $delivery['images'] ) && empty( $delivery['videos'] ) )
+		) {
+			return;
+		}
+
+		$token = $order->get_meta( '_aip_delivery_token' );
+		if ( ! $token ) {
+			return;
+		}
+		$delivery_url = add_query_arg(
+			array(
+				'aip_order_delivery' => $order->get_id(),
+				'aip_token'          => $token,
+			),
+			home_url( '/' )
+		);
+
+		if ( $plain_text ) {
+			echo "\nVIEW AND DOWNLOAD YOUR CONTENT\n" . esc_url_raw( $delivery_url ) . "\n\n";
+			return;
+		}
+		?>
+		<div style="margin:32px 0 24px;padding:24px;border:1px solid #ded7e5;border-radius:10px;">
+			<h2 style="margin:0 0 8px;">Your content is ready</h2>
+			<p style="margin:0 0 18px;">Open your private delivery page to view and download your finished Style by REii shoppable video. No password is required.</p>
+			<p style="margin:10px 0;">
+				<a href="<?php echo esc_url( $delivery_url ); ?>" style="display:inline-block;background:#6846e6;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:7px;font-weight:700;">View and download your content</a>
+			</p>
+		</div>
+		<?php
+	}
+
+	private static function delivery_order_from_request() {
+		$order_id = isset( $_GET['aip_order_delivery'] ) ? absint( $_GET['aip_order_delivery'] ) : 0;
+		$token    = isset( $_GET['aip_token'] ) ? sanitize_text_field( wp_unslash( $_GET['aip_token'] ) ) : '';
+		$order    = $order_id ? wc_get_order( $order_id ) : false;
+		if ( ! $order || ! $token ) {
+			return false;
+		}
+		$saved_token = (string) $order->get_meta( '_aip_delivery_token' );
+		$delivery    = $order->get_meta( '_aip_deliverables' );
+		if ( ! $saved_token || ! hash_equals( $saved_token, $token ) || ! is_array( $delivery ) || empty( $delivery['delivered_at'] ) ) {
+			return false;
+		}
+		return $order;
+	}
+
+	private static function delivery_files( $order ) {
+		$delivery  = $order->get_meta( '_aip_deliverables' );
+		$files     = array();
+		$img_count = count( (array) ( $delivery['images'] ?? array() ) );
+		$vid_count = count( (array) ( $delivery['videos'] ?? array() ) );
+
+		foreach ( (array) ( $delivery['images'] ?? array() ) as $index => $url ) {
+			if ( $url ) {
+				$label = $img_count > 1 ? sprintf( 'Product Preview %d', $index + 1 ) : 'Product Preview';
+				$files[ 'image-' . $index ] = array( 'label' => $label, 'url' => esc_url_raw( $url ), 'type' => 'image' );
+			}
+		}
+		foreach ( (array) ( $delivery['videos'] ?? array() ) as $index => $url ) {
+			if ( $url ) {
+				$label = $vid_count > 1 ? sprintf( 'Shoppable UGC Video %d', $index + 1 ) : 'Shoppable UGC Video';
+				$files[ 'video-' . $index ] = array( 'label' => $label, 'url' => esc_url_raw( $url ), 'type' => 'video' );
+			}
+		}
+		return $files;
+	}
+
+	private static function tracked_file_url( $order, $file_key, $mode = 'download' ) {
+		return add_query_arg(
+			array(
+				'aip_order_delivery' => $order->get_id(),
+				'aip_token'          => $order->get_meta( '_aip_delivery_token' ),
+				'aip_file'           => $file_key,
+				'aip_mode'           => $mode,
+			),
+			home_url( '/' )
+		);
+	}
+
+	private static function delivery_orders_for_customer( $seed_order ) {
+		$email = sanitize_email( $seed_order->get_billing_email() );
+		if ( ! $email ) {
+			return array( $seed_order );
+		}
+		$orders = wc_get_orders(
+			array(
+				'billing_email' => $email,
+				'status'        => array( 'completed' ),
+				'limit'         => -1,
+				'orderby'       => 'date',
+				'order'         => 'DESC',
+			)
+		);
+		$available = array();
+		foreach ( $orders as $order ) {
+			$delivery = $order->get_meta( '_aip_deliverables' );
+			if ( ! is_array( $delivery ) || empty( $delivery['delivered_at'] ) || ( empty( $delivery['images'] ) && empty( $delivery['videos'] ) ) ) {
+				continue;
+			}
+			if ( ! $order->get_meta( '_aip_delivery_token' ) ) {
+				$order->update_meta_data( '_aip_delivery_token', wp_generate_password( 48, false, false ) );
+				$order->save();
+			}
+			$available[] = $order;
+		}
+		return $available;
+	}
+
+	private static function delivery_order_details( $order ) {
+		$details = array(
+			'package'               => '',
+			'source'                => '',
+			'reference'             => '',
+			'instructions'          => '',
+			'uploaded_files'        => '',
+			'uploaded_file_objects' => array(),
+			'production'            => array(),
+		);
+		$package_names = array();
+		foreach ( $order->get_items() as $item ) {
+			$package_names[] = $item->get_name();
+			foreach ( $item->get_meta_data() as $meta ) {
+				$key   = isset( $meta->key ) ? (string) $meta->key : '';
+				$value = isset( $meta->value ) && is_scalar( $meta->value ) ? trim( (string) $meta->value ) : '';
+				if ( ! $value ) {
+					continue;
+				}
+				if ( 'Product source' === $key ) {
+					$details['source'] = $value;
+				} elseif ( 'Amazon link / ASIN' === $key ) {
+					$details['reference'] = $value;
+				} elseif ( 'Customer instructions' === $key ) {
+					$details['instructions'] = $value;
+				} elseif ( in_array( $key, array( 'Uploaded file', 'Uploaded files' ), true ) ) {
+					$details['uploaded_files'] = $value;
+				}
+			}
+		}
+
+		$uploaded_objs = $order->get_meta( '_aip_uploaded_files' );
+		$uploaded_objs = is_array( $uploaded_objs ) ? $uploaded_objs : array();
+		if ( empty( $uploaded_objs ) && ! empty( $details['uploaded_files'] ) ) {
+			$raw_names = preg_split( '/\s*,\s*/', $details['uploaded_files'] );
+			foreach ( $raw_names as $fname ) {
+				$fname = trim( $fname );
+				if ( ! $fname ) {
+					continue;
+				}
+				$uploaded_objs[] = array(
+					'name' => $fname,
+					'url'  => ( strpos( $fname, 'http' ) === 0 || strpos( $fname, 'data:image' ) === 0 ) ? $fname : '',
+					'type' => '',
+					'size' => 0,
+				);
+			}
+		}
+		$details['uploaded_file_objects'] = $uploaded_objs;
+		$details['package'] = implode( ', ', array_filter( array_unique( $package_names ) ) );
+		if ( ! $details['instructions'] ) {
+			$details['instructions'] = trim( (string) $order->get_customer_note() );
+		}
+		if ( ! $details['source'] ) {
+			$details['source'] = $details['reference'] ? 'Amazon link / ASIN' : ( ( ! empty( $details['uploaded_file_objects'] ) || $details['uploaded_files'] ) ? 'Uploaded product files' : 'Product submission' );
+		}
+		$brief = $order->get_meta( '_aip_delivery_brief' );
+		if ( is_array( $brief ) ) {
+			$labels = array(
+				'model_profile' => 'Model profile',
+				'scene'         => 'Scene & environment',
+				'lighting'      => 'Time of day / lighting',
+				'format'        => 'Format',
+				'transition'    => 'Transition style',
+				'video_filter'  => 'Video aesthetic',
+				'pose'          => 'Pose direction',
+			);
+			foreach ( $labels as $key => $label ) {
+				if ( ! empty( $brief[ $key ] ) && is_scalar( $brief[ $key ] ) ) {
+					$value = ucwords( str_replace( array( '_', '-' ), ' ', sanitize_text_field( (string) $brief[ $key ] ) ) );
+					$details['production'][] = array( 'label' => $label, 'value' => $value );
+				}
+			}
+		}
+		return $details;
+	}
+
+	private static function record_download( $order, $file_key ) {
+		$stats = $order->get_meta( '_aip_download_stats' );
+		$stats = is_array( $stats ) ? $stats : array();
+		$now   = current_time( DATE_ATOM );
+		$entry = isset( $stats[ $file_key ] ) && is_array( $stats[ $file_key ] ) ? $stats[ $file_key ] : array();
+		$entry['count']               = absint( $entry['count'] ?? 0 ) + 1;
+		$entry['first_downloaded_at'] = $entry['first_downloaded_at'] ?? $now;
+		$entry['last_downloaded_at']  = $now;
+		$stats[ $file_key ]           = $entry;
+		$order->update_meta_data( '_aip_download_stats', $stats );
+		$order->save();
+	}
+
+	private static function stream_delivery_file( $order, $file_key, $mode ) {
+		$files = self::delivery_files( $order );
+		if ( ! isset( $files[ $file_key ] ) ) {
+			status_header( 404 );
+			exit;
+		}
+		$file          = $files[ $file_key ];
+		$attachment_id = attachment_url_to_postid( $file['url'] );
+		$path          = $attachment_id ? get_attached_file( $attachment_id ) : '';
+		if ( ! $path || ! is_readable( $path ) ) {
+			status_header( 404 );
+			exit;
+		}
+		if ( 'download' === $mode ) {
+			self::record_download( $order, $file_key );
+		}
+		$filename = sanitize_file_name( basename( $path ) );
+		$filetype = wp_check_filetype( $filename );
+		nocache_headers();
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+		header( 'X-Content-Type-Options: nosniff', true );
+		header( 'Content-Type: ' . ( $filetype['type'] ?: 'application/octet-stream' ) );
+		header( 'Content-Length: ' . filesize( $path ) );
+		header( 'Content-Disposition: ' . ( 'download' === $mode ? 'attachment' : 'inline' ) . '; filename="' . $filename . '"' );
+		while ( ob_get_level() ) {
+			ob_end_clean();
+		}
+		readfile( $path );
+		exit;
+	}
+
+	public static function passwordless_delivery_request() {
+		if ( empty( $_GET['aip_order_delivery'] ) || empty( $_GET['aip_token'] ) ) {
+			return;
+		}
+		$order = self::delivery_order_from_request();
+		if ( ! $order ) {
+			status_header( 404 );
+			nocache_headers();
+			echo '<h1>Delivery link unavailable</h1><p>This link is invalid or the order has not been submitted yet.</p>';
+			exit;
+		}
+		$file_key = isset( $_GET['aip_file'] ) ? sanitize_key( wp_unslash( $_GET['aip_file'] ) ) : '';
+		$mode     = isset( $_GET['aip_mode'] ) && 'preview' === sanitize_key( wp_unslash( $_GET['aip_mode'] ) ) ? 'preview' : 'download';
+		if ( $file_key ) {
+			self::stream_delivery_file( $order, $file_key, $mode );
+		}
+
+		$customer_orders = self::delivery_orders_for_customer( $order );
+		$total_videos    = 0;
+		foreach ( $customer_orders as $library_order ) {
+			foreach ( self::delivery_files( $library_order ) as $library_file ) {
+				if ( 'video' === $library_file['type'] ) {
+					++$total_videos;
+				}
+			}
+		}
+		status_header( 200 );
+		nocache_headers();
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+		?>
+		<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your Video Library · Tech by Leon</title>
+		<style>:root{--ink:#211b28;--muted:#756d7d;--line:#e8e3eb;--page:#f4f2f6;--purple:#6846e6;--purple-dark:#5634d1;--purple-soft:#f2eeff}*{box-sizing:border-box}body{background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:34px 18px;-webkit-font-smoothing:antialiased}.wrap{margin:0 auto;max-width:1080px}.head{background:#1b1622;border-radius:20px;color:#fff;margin-bottom:22px;padding:34px 38px}.head small{color:#bfa8ff;display:block;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:7px;text-transform:uppercase}.head-row{align-items:end;display:flex;gap:24px;justify-content:space-between}.head h1{font-size:34px;font-weight:800;letter-spacing:-.8px;margin:0 0 5px}.head p{color:#cdc6d5;font-size:14px;margin:0}.library-count{color:#d9d2e2;font-size:12px;font-weight:700;white-space:nowrap}.content{display:grid;gap:20px}.order{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 30px rgba(32,23,42,.05);overflow:hidden}.order-head{align-items:center;border-bottom:1px solid var(--line);display:grid;gap:15px;grid-template-columns:auto 1fr auto;padding:18px 22px}.order-thumb{border-radius:10px;height:68px;object-fit:cover;width:58px}.order-kicker{color:var(--purple);font-size:9px;font-weight:800;letter-spacing:1.3px;margin:0 0 4px;text-transform:uppercase}.order-head h2{font-size:21px;letter-spacing:-.4px;margin:0 0 4px}.order-meta{color:var(--muted);font-size:12px}.delivered-pill{background:#edf9f1;border:1px solid #cdebd7;border-radius:999px;color:#24733f;font-size:10px;font-weight:800;padding:7px 10px;text-transform:uppercase}.order-body{display:grid;gap:26px;grid-template-columns:minmax(0,1fr) 290px;padding:24px}.brief-title{font-size:15px;margin:0 0 15px}.detail-grid{display:grid;gap:15px 20px;grid-template-columns:repeat(2,minmax(0,1fr));margin:0}.detail{border-bottom:1px solid #f0ecf2;padding-bottom:12px}.detail.full{grid-column:1/-1}.detail dt{color:#8a818f;font-size:9px;font-weight:800;letter-spacing:1px;margin-bottom:5px;text-transform:uppercase}.detail dd{color:#2c2532;font-size:13px;font-weight:650;line-height:1.45;margin:0;overflow-wrap:anywhere}.detail dd.request{font-weight:500}.video-stack{display:grid;gap:14px}.video-card{background:#17131d;border-radius:13px;overflow:hidden}.video-card video{aspect-ratio:9/16;background:#17131d;display:block;max-height:390px;object-fit:cover;width:100%}.video-actions{background:#fff;border:1px solid var(--line);border-top:0;padding:14px}.video-actions strong{display:block;font-size:13px;margin-bottom:10px}.button{background:var(--purple);border-radius:9px;color:#fff;display:block;font-size:13px;font-weight:750;padding:11px 14px;text-align:center;text-decoration:none}.button:hover{background:var(--purple-dark)}.upsell{align-items:center;background:var(--purple-soft);border-top:1px solid #dfd5ff;display:grid;gap:20px;grid-template-columns:1fr auto;padding:20px 24px}.upsell small{color:var(--purple);display:block;font-size:9px;font-weight:850;letter-spacing:1.2px;margin-bottom:5px;text-transform:uppercase}.upsell h3{font-size:16px;margin:0 0 4px}.upsell p{color:#665d70;font-size:12px;line-height:1.45;margin:0}.upsell-actions{display:flex;gap:9px}.upsell-link{border:1px solid #cfc2fa;border-radius:8px;color:#5237be;font-size:12px;font-weight:750;padding:10px 13px;text-decoration:none;white-space:nowrap}.upsell-link.primary{background:var(--purple);border-color:var(--purple);color:#fff}.note{color:#7c7384;font-size:12px;margin:4px 0 0;text-align:center}.aip-intake-gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));margin-top:8px}.aip-intake-thumb{background:#fff;border:1px solid #e3dcee;border-radius:10px;display:block;overflow:hidden;text-align:center;text-decoration:none!important;transition:transform .15s ease,box-shadow .15s ease}.aip-intake-thumb:hover{box-shadow:0 4px 14px rgba(104,70,230,.15);transform:translateY(-1px)}.aip-intake-thumb img{aspect-ratio:1;background:#181320;display:block;object-fit:cover;width:100%}.aip-intake-thumb-icon{align-items:center;background:#f3eeff;color:#6846e6;display:flex;font-size:22px;height:84px;justify-content:center}.aip-intake-thumb span{color:#342a3e;display:block;font-size:10px;font-weight:700;overflow:hidden;padding:5px 4px;text-overflow:ellipsis;white-space:nowrap}@media(max-width:760px){body{padding:16px 10px}.head{border-radius:15px;padding:26px 22px}.head-row{align-items:start;flex-direction:column;gap:14px}.head h1{font-size:28px}.order-head{grid-template-columns:auto 1fr;padding:15px}.delivered-pill{display:none}.order-body{grid-template-columns:1fr;padding:18px}.detail-grid{grid-template-columns:1fr}.detail.full{grid-column:auto}.video-card video{max-height:520px}.upsell{grid-template-columns:1fr;padding:18px}.upsell-actions{flex-direction:column}.upsell-link{text-align:center}}</style></head><body><main class="wrap"><header class="head"><small>TECH BY LEON</small><div class="head-row"><div><h1>Your video library</h1><p>Every finished product video, request brief, and download in one place.</p></div><span class="library-count"><?php echo esc_html( count( $customer_orders ) ); ?> completed order<?php echo 1 === count( $customer_orders ) ? '' : 's'; ?> · <?php echo esc_html( $total_videos ); ?> video<?php echo 1 === $total_videos ? '' : 's'; ?></span></div></header><section class="content">
+		<style>
+		.head{display:none}.reii-library-head{background:#1b1622;border-radius:20px;color:#fff;margin-bottom:22px;padding:34px 38px}.reii-library-head small{color:#bfa8ff;display:block;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:7px;text-transform:uppercase}.reii-library-head-row{align-items:end;display:flex;gap:24px;justify-content:space-between}.reii-library-head h1{font-size:34px;font-weight:800;letter-spacing:-.8px;margin:0 0 5px}.reii-library-head p{color:#cdc6d5;font-size:14px;margin:0}.upsell{display:none}.delivery-addons{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 30px rgba(32,23,42,.05);margin-top:2px;overflow:hidden}.delivery-addons-head{padding:25px 26px 18px}.delivery-addons-head small{color:var(--purple);display:block;font-size:9px;font-weight:850;letter-spacing:1.2px;margin-bottom:7px;text-transform:uppercase}.delivery-addons-head h2{font-size:25px;letter-spacing:-.5px;margin:0 0 6px}.delivery-addons-head p{color:var(--muted);font-size:13px;margin:0}.delivery-addon-list{border-top:1px solid var(--line)}.delivery-addon{align-items:center;border-bottom:1px solid var(--line);color:var(--ink);display:grid;gap:16px;grid-template-columns:1fr auto auto;min-height:76px;padding:12px 26px;text-decoration:none}.delivery-addon:last-child{border-bottom:0}.delivery-addon:hover{background:var(--purple-soft)}.delivery-addon strong,.delivery-addon span{display:block}.delivery-addon strong{font-size:14px}.delivery-addon span{color:var(--muted);font-size:11px;margin-top:3px}.delivery-addon b{color:var(--purple);font-size:13px}.delivery-addon i{align-items:center;border:1px solid var(--purple);border-radius:50%;color:var(--purple);display:flex;font-size:18px;font-style:normal;height:34px;justify-content:center;width:34px}@media(max-width:760px){.reii-library-head{border-radius:15px;padding:26px 22px}.reii-library-head-row{align-items:start;flex-direction:column;gap:14px}.reii-library-head h1{font-size:28px}.delivery-addon{grid-template-columns:1fr auto auto;padding:12px 18px}}
+		</style>
+		<header class="reii-library-head"><small>STYLE BY REii</small><div class="reii-library-head-row"><div><h1>Your shoppable video library</h1><p>Every finished UGC-style product video, request brief, and download in one private place.</p></div><span class="library-count"><?php echo esc_html( count( $customer_orders ) ); ?> completed order<?php echo 1 === count( $customer_orders ) ? '' : 's'; ?> · <?php echo esc_html( $total_videos ); ?> video<?php echo 1 === $total_videos ? '' : 's'; ?></span></div></header>
+		<?php foreach ( $customer_orders as $customer_order ) :
+			$files = self::delivery_files( $customer_order );
+			$details = self::delivery_order_details( $customer_order );
+			$first_img_key = false;
+			foreach ( $files as $k => $f ) {
+				if ( 'image' === $f['type'] ) { $first_img_key = $k; break; }
+			}
+			$poster_url = $first_img_key ? self::tracked_file_url( $customer_order, $first_img_key, 'preview' ) : '';
+			$variation_url = add_query_arg( array( 'aip_offer' => 'new-version', 'source_order' => $customer_order->get_id() ), home_url( '/on-model-content/' ) ) . '#submit-project';
+			$new_product_url = add_query_arg( array( 'aip_offer' => 'new-product', 'source_order' => $customer_order->get_id() ), home_url( '/on-model-content/' ) ) . '#submit-project';
+		?>
+		<article class="order"><header class="order-head"><?php if ( $poster_url ) : ?><img class="order-thumb" src="<?php echo esc_url( $poster_url ); ?>" alt="Order thumbnail"><?php endif; ?><div><p class="order-kicker">Completed content</p><h2>Order #<?php echo esc_html( $customer_order->get_order_number() ); ?></h2><span class="order-meta"><?php echo esc_html( wc_format_datetime( $customer_order->get_date_created() ) ); ?> · <?php echo wp_kses_post( $customer_order->get_formatted_order_total() ); ?></span></div><span class="delivered-pill">Delivered</span></header><div class="order-body"><section><h3 class="brief-title">What you requested</h3><dl class="detail-grid"><div class="detail"><dt>Package</dt><dd><?php echo esc_html( $details['package'] ?: 'On-Model Content Package' ); ?></dd></div><div class="detail"><dt>Product source</dt><dd><?php echo esc_html( $details['source'] ); ?></dd></div><?php if ( $details['reference'] ) : $ref_asin = self::extract_asin( $details['reference'] ); $ref_label = $ref_asin ? 'ASIN: ' . $ref_asin : self::format_reference_for_display( $details['reference'] ); $amazon_url = $ref_asin ? "https://www.amazon.com/dp/{$ref_asin}" : ( preg_match( '/^https?:\/\//i', $details['reference'] ) ? $details['reference'] : '' ); $product_img = $ref_asin ? "https://images-na.ssl-images-amazon.com/images/P/{$ref_asin}.01.MAIN._AC_SY300_.jpg" : ( ! empty( $details['uploaded_file_objects'] ) ? ( $details['uploaded_file_objects'][0]['url'] ?? '' ) : '' ); ?><div class="detail full"><dt>Amazon link / ASIN</dt><dd style="display:flex; align-items:center; gap:14px; margin-top:6px;"><?php if ( $product_img ) : ?><a href="<?php echo esc_url( $amazon_url ?: '#' ); ?>" <?php if ( $amazon_url ) echo 'target="_blank" rel="noopener"'; ?> style="display:block; flex-shrink:0;"><img src="<?php echo esc_url( $product_img ); ?>" alt="Product thumbnail" style="width:58px; height:70px; object-fit:cover; border-radius:8px; border:1px solid #e3dcee; background:#181320; display:block;" onerror="this.style.display='none'"></a><?php endif; ?><div><strong style="font-size:14px; color:#211b28; display:block; font-family:monospace,sans-serif; font-weight:750;"><?php echo esc_html( $ref_label ); ?></strong><?php if ( $amazon_url ) : ?><a href="<?php echo esc_url( $amazon_url ); ?>" target="_blank" rel="noopener" style="color:#6846e6; font-size:12px; font-weight:750; text-decoration:none; display:inline-block; margin-top:3px;">View on Amazon ↗</a><?php endif; ?></div></dd></div><?php endif; ?><?php if ( ! empty( $details['uploaded_file_objects'] ) || $details['uploaded_files'] ) : ?><div class="detail full"><dt>Uploaded product files</dt><dd><?php if ( ! empty( $details['uploaded_file_objects'] ) ) : ?><div class="aip-intake-gallery"><?php foreach ( $details['uploaded_file_objects'] as $u_file ) : $f_url = is_array( $u_file ) ? ( $u_file['url'] ?? '' ) : ( is_string( $u_file ) ? $u_file : '' ); $f_name = is_array( $u_file ) ? ( $u_file['name'] ?? 'Uploaded file' ) : (string) $u_file; $is_img = $f_url && ( preg_match( '/\.(jpg|jpeg|png|webp|gif|svg)$/i', $f_url ) || strpos( $f_url, 'data:image' ) === 0 ); ?><a href="<?php echo esc_url( $f_url ?: '#' ); ?>" <?php if ( $f_url ) echo 'target="_blank" rel="noopener"'; ?> class="aip-intake-thumb" title="<?php echo esc_attr( $f_name ); ?>"><?php if ( $is_img ) : ?><img src="<?php echo esc_url( $f_url ); ?>" alt="<?php echo esc_attr( $f_name ); ?>"><?php else : ?><div class="aip-intake-thumb-icon">📄</div><?php endif; ?><span><?php echo esc_html( $f_name ); ?></span></a><?php endforeach; ?></div><?php else : ?><?php echo esc_html( $details['uploaded_files'] ); ?><?php endif; ?></dd></div><?php endif; ?><div class="detail full"><dt>Your instructions</dt><dd class="request"><?php echo esc_html( $details['instructions'] ?: 'No additional instructions were provided.' ); ?></dd></div><?php foreach ( $details['production'] as $production_detail ) : ?><div class="detail"><dt><?php echo esc_html( $production_detail['label'] ); ?></dt><dd><?php echo esc_html( $production_detail['value'] ); ?></dd></div><?php endforeach; ?></dl></section><aside class="video-stack"><?php foreach ( $files as $key => $file ) : if ( 'video' !== $file['type'] ) continue; ?><section class="video-card"><video controls playsinline preload="metadata"<?php if ( $poster_url ) echo ' poster="' . esc_url( $poster_url ) . '"'; ?> src="<?php echo esc_url( self::tracked_file_url( $customer_order, $key, 'preview' ) ); ?>"></video><div class="video-actions"><strong><?php echo esc_html( $file['label'] ); ?></strong><a class="button" href="<?php echo esc_url( self::tracked_file_url( $customer_order, $key ) ); ?>">Download HD video</a></div></section><?php endforeach; ?></aside></div><footer class="upsell"><div><small>Make more from this product</small><h3>Turn this order into your next piece of content</h3><p>Request another hook, scene, or video cut—or start fresh with a new product.</p></div><div class="upsell-actions"><a class="upsell-link" href="<?php echo esc_url( $variation_url ); ?>">Create another version</a><a class="upsell-link primary" href="<?php echo esc_url( $new_product_url ); ?>">Start a new product</a></div></footer></article><?php endforeach; ?>
+		<section class="delivery-addons"><header class="delivery-addons-head"><small>MAKE MORE FROM YOUR PRODUCT</small><h2>Customize your next feature</h2><p>Add another version without starting from scratch.</p></header><div class="delivery-addon-list">
+		<?php
+		$delivery_addons = self::addon_catalog();
+		$delivery_addon_descriptions = array(
+			'extra-environment'  => 'A new location, new feel. Same product.',
+			'another-version'    => 'Another pose or cut with the same setup.',
+			'20-second-story'    => 'Extend your feature to a 20-second vertical video.',
+			'alternate-lighting' => 'Different lighting to match your brand.',
+			'priority-delivery'  => 'Get the next version faster with priority turnaround.',
+		);
+		foreach ( $delivery_addons as $addon_slug => $addon ) :
+			$addon_url = add_query_arg( array( 'aip_offer' => $addon_slug, 'source_order' => $order->get_id() ), home_url( '/on-model-content/' ) ) . '#submit-project';
+		?>
+		<a class="delivery-addon" href="<?php echo esc_url( $addon_url ); ?>"><span><strong><?php echo esc_html( $addon['label'] ); ?></strong><span><?php echo esc_html( $delivery_addon_descriptions[ $addon_slug ] ); ?></span></span><b>+$<?php echo esc_html( $addon['price'] ); ?></b><i aria-hidden="true">+</i></a>
+		<?php endforeach; ?>
+		</div></section>
+		<p class="note">This private link stays available whenever you need to re-download a finished shoppable video.</p></section></main></body></html>
+		<?php
+		exit;
 	}
 
 	public static function service_product() {
@@ -336,19 +752,24 @@ final class AIP_On_Model_Commerce {
 	}
 
 	public static function ensure_service_product() {
-		if ( ! class_exists( 'WC_Product_Simple' ) || self::service_product() ) {
+		if ( ! class_exists( 'WC_Product_Simple' ) ) {
 			return;
 		}
 
-		$product = new WC_Product_Simple();
-		$product->set_name( 'On-Model Content Package' );
-		$product->set_slug( 'on-model-content-package' );
-		$product->set_status( 'draft' );
+		$product = self::service_product();
+		if ( ! $product ) {
+			$product = new WC_Product_Simple();
+			$product->set_sku( self::PRODUCT_SKU );
+		}
+		$product->set_name( 'Style by REii Shoppable Video Feature' );
+		$product->set_slug( 'style-by-reii-shoppable-video-feature' );
+		$product->set_status( 'publish' );
 		$product->set_catalog_visibility( 'hidden' );
 		$product->set_virtual( true );
 		$product->set_sold_individually( true );
-		$product->set_sku( self::PRODUCT_SKU );
-		$product->set_description( 'On-model product content created from an Amazon listing, ASIN, or customer-supplied product files.' );
+		$product->set_regular_price( self::BASE_PRICE );
+		$product->set_price( self::BASE_PRICE );
+		$product->set_description( 'One 10-second vertical UGC-style product video, submitted to the Style by REii storefront and delivered as an HD social-ready file.' );
 		$product_id = $product->save();
 
 		if ( $product_id ) {
@@ -368,7 +789,7 @@ final class AIP_On_Model_Commerce {
 
 		$url = $product ? get_edit_post_link( $product->get_id() ) : admin_url( 'edit.php?post_type=product' );
 		?>
-		<div class="notice notice-warning"><p><strong>On-Model checkout needs a price.</strong> Set the package price and publish the hidden service product to enable the intake-to-checkout flow. <a href="<?php echo esc_url( $url ); ?>">Configure service product</a>.</p></div>
+		<div class="notice notice-warning"><p><strong>Style by REii checkout needs attention.</strong> Review the hidden shoppable-video service product to enable the intake-to-checkout flow. <a href="<?php echo esc_url( $url ); ?>">Configure service product</a>.</p></div>
 		<?php
 	}
 
@@ -385,6 +806,8 @@ final class AIP_On_Model_Commerce {
 			'notReady'            => 'Checkout is being configured. Your product details were saved, but payment is not available yet.',
 		);
 
+		wp_enqueue_script( 'jquery' );
+		wp_add_inline_script( 'jquery', 'window.aipCommerceConfig=' . wp_json_encode( $config ) . ';', 'after' );
 		wp_add_inline_script(
 			'jquery',
 			"(function(){function clearPortalFiles(portal){if(!portal)return;var forms=portal.querySelectorAll('form.wpcf7-form, form');forms.forEach(function(form){try{form.reset();}catch(e){}form.setAttribute('action','javascript:void(0);');form.classList.remove('submitting','sent','failed','invalid','spam');form.setAttribute('data-status','init');var responseOutput=form.querySelector('.wpcf7-response-output');if(responseOutput)responseOutput.textContent='';var submitBtn=form.querySelector('input[type=\"submit\"], button[type=\"submit\"]');if(submitBtn)submitBtn.disabled=false;});var inputs=portal.querySelectorAll('input[name^=\"product-file-\"]');inputs.forEach(function(inp){inp.value='';try{inp.files=(new DataTransfer()).files;}catch(e){}inp.dispatchEvent(new Event('change',{bubbles:true}));});var refInput=portal.querySelector('input[name=\"product-reference\"]');if(refInput)refInput.value='';var emailInput=portal.querySelector('input[name=\"your-email\"]');if(emailInput)emailInput.value='';var notesInput=portal.querySelector('textarea[name=\"your-message\"]');if(notesInput)notesInput.value='';try{portal.dispatchEvent(new CustomEvent('reset'));}catch(e){}var previewList=portal.querySelector('.aip-drop-preview-list');if(previewList){previewList.innerHTML='';previewList.hidden=true;}var dropzone=portal.querySelector('.aip-dropzone');if(dropzone)dropzone.classList.remove('has-file');var dropFooter=portal.querySelector('.aip-drop-footer');if(dropFooter)dropFooter.hidden=true;}function closeDrawer(drawer,portal){if(!drawer){return;}drawer.classList.remove('is-open');document.body.classList.remove('aip-drawer-open');if(portal){clearPortalFiles(portal);}window.setTimeout(function(){drawer.remove();},240);}function openDrawer(cfg,portal){var old=document.querySelector('.aip-checkout-drawer');if(old){old.remove();}var submittedEmail=(portal.querySelector('input[name=\"your-email\"]')||{}).value||'';var drawer=document.createElement('div');drawer.className='aip-checkout-drawer';drawer.setAttribute('role','dialog');drawer.setAttribute('aria-modal','true');drawer.setAttribute('aria-label','Secure checkout');drawer.innerHTML='<button class=\"aip-checkout-backdrop\" type=\"button\" aria-label=\"Close checkout\"></button><section class=\"aip-checkout-panel\"><header><div><small>STEP 2 OF 3</small><strong>Complete your order</strong></div><button class=\"aip-checkout-close\" type=\"button\" aria-label=\"Close checkout\">&times;</button></header><div class=\"aip-checkout-loading\"><span></span>Loading secure payment...</div><iframe title=\"Secure checkout\" allow=\"payment *\" src=\"'+String(cfg.embeddedCheckoutUrl||cfg.checkoutUrl)+'\"></iframe></section>';document.body.appendChild(drawer);document.body.classList.add('aip-drawer-open');window.requestAnimationFrame(function(){drawer.classList.add('is-open');});function updateResponse(){portal.querySelectorAll('.wpcf7-response-output,.screen-reader-response').forEach(function(response){response.textContent='Your product is saved. Complete payment to place your order.';});}updateResponse();window.setTimeout(updateResponse,50);window.setTimeout(updateResponse,500);var frame=drawer.querySelector('iframe');function sendEmail(){if(submittedEmail&&frame.contentWindow){frame.contentWindow.postMessage({type:'aipCheckoutEmail',email:submittedEmail},window.location.origin);}}frame.addEventListener('load',function(){drawer.classList.add('is-loaded');window.setTimeout(sendEmail,100);window.setTimeout(sendEmail,700);try{if(frame.contentWindow.location.href.indexOf('/order-received/')!==-1){drawer.classList.add('is-complete');drawer.querySelector('header small').textContent='STEP 3 OF 3';drawer.querySelector('header strong').textContent='Order confirmed';clearPortalFiles(portal);}}catch(ignore){}});window.addEventListener('message',function(event){if(event.origin===window.location.origin&&event.source===frame.contentWindow&&event.data&&event.data.type==='aipCheckoutReady'){sendEmail();}});drawer.querySelectorAll('.aip-checkout-close,.aip-checkout-backdrop').forEach(function(button){button.addEventListener('click',function(){closeDrawer(drawer,portal);});});document.addEventListener('keydown',function escape(event){if(event.key==='Escape'&&document.body.contains(drawer)){closeDrawer(drawer,portal);document.removeEventListener('keydown',escape);}});}document.addEventListener('submit',function(event){var form=event.target;if(form&&form.closest('.aip-portal')){form.setAttribute('action','javascript:void(0);');if(form.getAttribute('data-status')==='sent'){form.setAttribute('data-status','init');form.classList.remove('sent','submitting','failed','invalid');}}},true);document.addEventListener('wpcf7mailsent',function(event){var cfg=window.aipCommerceConfig||{};var portal=event.target&&event.target.closest('.aip-portal');if(!portal){return;}var error=portal.querySelector('.aip-form-error');if(!cfg.ready){if(error){error.textContent=cfg.notReady||'Checkout is not available yet.';}return;}openDrawer(cfg,portal);clearPortalFiles(portal);});})();",
@@ -508,6 +931,9 @@ final class AIP_On_Model_Commerce {
 		$method   = sanitize_text_field( isset( $data['source-method'] ) ? $data['source-method'] : '' );
 		$reference = sanitize_text_field( isset( $data['product-reference'] ) ? $data['product-reference'] : '' );
 		$notes     = sanitize_textarea_field( isset( $data['creative-notes'] ) ? $data['creative-notes'] : '' );
+		$addon     = isset( $_POST['aip-addon'] ) ? sanitize_key( wp_unslash( $_POST['aip-addon'] ) ) : '';
+		$addon     = array_key_exists( $addon, self::addon_catalog() ) ? $addon : '';
+		$source_order = isset( $_POST['aip-source-order'] ) ? absint( $_POST['aip-source-order'] ) : 0;
 		$file_names = array();
 		$files_data = array();
 
@@ -535,6 +961,8 @@ final class AIP_On_Model_Commerce {
 			'method'       => $method,
 			'reference'    => $reference,
 			'notes'        => $notes,
+			'addon'        => $addon,
+			'source_order' => $source_order,
 			'file_names'   => array_slice( array_values( array_unique( $file_names ) ), 0, 4 ),
 			'files'        => array_slice( $files_data, 0, 4 ),
 			'submitted_at' => current_time( DATE_ATOM ),
@@ -623,17 +1051,52 @@ final class AIP_On_Model_Commerce {
 		if ( empty( $cart_item['aip_intake'] ) ) {
 			return $details;
 		}
-		$intake = $cart_item['aip_intake'];
-		if ( ! empty( $intake['method'] ) ) {
-			$details[] = array( 'key' => 'Product source', 'value' => wc_clean( $intake['method'] ) );
+		return array_merge( $details, self::get_display_details( $cart_item['aip_intake'] ) );
+	}
+
+	private static function addon_catalog() {
+		return array(
+			'extra-environment'  => array( 'label' => 'Extra environment', 'price' => 15 ),
+			'another-version'    => array( 'label' => 'Another version', 'price' => 15 ),
+			'20-second-story'    => array( 'label' => '20-second story', 'price' => 10 ),
+			'alternate-lighting' => array( 'label' => 'Alternate lighting', 'price' => 10 ),
+			'priority-delivery'  => array( 'label' => 'Priority delivery', 'price' => 10 ),
+		);
+	}
+
+	public static function apply_addon_price( $cart ) {
+		if ( ! $cart || ( is_admin() && ! wp_doing_ajax() ) ) {
+			return;
 		}
+		$catalog = self::addon_catalog();
+		foreach ( $cart->get_cart() as $cart_item ) {
+			if ( empty( $cart_item['aip_intake'] ) || empty( $cart_item['data'] ) ) {
+				continue;
+			}
+			$addon = sanitize_key( $cart_item['aip_intake']['addon'] ?? '' );
+			$extra = isset( $catalog[ $addon ] ) ? (float) $catalog[ $addon ]['price'] : 0;
+			$cart_item['data']->set_price( (float) self::BASE_PRICE + $extra );
+		}
+	}
+
+	public static function extract_asin( $ref ) {
+		if ( empty( $ref ) ) {
+			return '';
+		}
+		if ( preg_match( '/(?:^|[^A-Z0-9])(B0[A-Z0-9]{8})(?=$|[^A-Z0-9])/i', (string) $ref, $matches ) ) {
+			return strtoupper( $matches[1] );
+		}
+		return '';
+	}
+
 	public static function format_reference_for_display( $ref ) {
 		if ( empty( $ref ) ) {
 			return '';
 		}
-		$ref = trim( $ref );
-		if ( preg_match( '/([A-Z0-9]{10})/i', $ref, $matches ) ) {
-			return 'ASIN: ' . strtoupper( $matches[1] );
+		$ref  = trim( $ref );
+		$asin = self::extract_asin( $ref );
+		if ( $asin ) {
+			return 'ASIN: ' . $asin;
 		}
 		if ( function_exists( 'mb_strimwidth' ) ) {
 			return mb_strimwidth( $ref, 0, 45, '…' );
@@ -644,10 +1107,38 @@ final class AIP_On_Model_Commerce {
 	public static function filter_order_item_display_meta( $formatted_meta, $item ) {
 		foreach ( $formatted_meta as $key => $meta ) {
 			if ( isset( $meta->key ) && 'Amazon link / ASIN' === $meta->key ) {
-				$formatted_meta[ $key ]->display_value = self::format_reference_for_display( $meta->value );
+				$asin = self::extract_asin( $meta->value );
+				$formatted_meta[ $key ]->display_value = $asin ? $asin : self::format_reference_for_display( $meta->value );
 			}
 		}
 		return $formatted_meta;
+	}
+
+	public static function custom_completed_email_subject( $subject, $order ) {
+		$order_num = ( $order && is_callable( array( $order, 'get_order_number' ) ) ) ? $order->get_order_number() : '';
+		return 'Your content is ready!' . ( $order_num ? ' (Order #' . $order_num . ')' : '' );
+	}
+
+	public static function custom_completed_email_heading( $heading, $order ) {
+		return 'Your content is ready!';
+	}
+
+	public static function customize_email_gettext( $translated_text, $text, $domain ) {
+		if ( 'woocommerce' === $domain ) {
+			if ( 'Good things are heading your way!' === $text || 'Your order is complete' === $text ) {
+				return 'Your content is ready!';
+			}
+			if ( 'We have finished processing your order.' === $text ) {
+				return 'Your Style by REii shoppable video is complete and ready for download.';
+			}
+			if ( "Here's a reminder of what you've ordered:" === $text ) {
+				return 'Here is a summary of your completed order:';
+			}
+			if ( 'Your order from %s is on its way!' === $text ) {
+				return 'Your content from %s is ready!';
+			}
+		}
+		return $translated_text;
 	}
 
 	public static function add_item_thumbnail_to_confirmation( $item_name, $item, $is_visible ) {
@@ -666,9 +1157,9 @@ final class AIP_On_Model_Commerce {
 			}
 		}
 
-		$ref = $item->get_meta( '_aip_raw_reference' ) ?: $item->get_meta( 'Amazon link / ASIN' );
-		if ( preg_match( '/([A-Z0-9]{10})/i', (string) $ref, $matches ) ) {
-			$asin = strtoupper( $matches[1] );
+		$ref  = $item->get_meta( '_aip_raw_reference' ) ?: $item->get_meta( 'Amazon link / ASIN' );
+		$asin = self::extract_asin( $ref );
+		if ( $asin ) {
 			$amazon_thumb = "https://images-na.ssl-images-amazon.com/images/P/{$asin}.01.MAIN._AC_SY300_.jpg";
 			if ( empty( $thumbs ) ) {
 				$thumbs[] = $amazon_thumb;
@@ -701,6 +1192,11 @@ final class AIP_On_Model_Commerce {
 		} elseif ( ! empty( $intake['file_name'] ) ) {
 			$details[] = array( 'key' => 'Uploaded file', 'value' => wc_clean( $intake['file_name'] ) );
 		}
+		$catalog = self::addon_catalog();
+		$addon   = sanitize_key( $intake['addon'] ?? '' );
+		if ( isset( $catalog[ $addon ] ) ) {
+			$details[] = array( 'key' => 'Feature add-on', 'value' => wc_clean( $catalog[ $addon ]['label'] . ' (+$' . $catalog[ $addon ]['price'] . ')' ) );
+		}
 		return $details;
 	}
 
@@ -719,6 +1215,14 @@ final class AIP_On_Model_Commerce {
 		}
 		if ( ! empty( $intake['notes'] ) ) {
 			$item->add_meta_data( 'Customer instructions', $intake['notes'], true );
+		}
+		$catalog = self::addon_catalog();
+		$addon   = sanitize_key( $intake['addon'] ?? '' );
+		if ( isset( $catalog[ $addon ] ) ) {
+			$item->add_meta_data( 'Feature add-on', $catalog[ $addon ]['label'] . ' (+$' . $catalog[ $addon ]['price'] . ')', true );
+		}
+		if ( ! empty( $intake['source_order'] ) ) {
+			$item->add_meta_data( 'Source order', '#' . absint( $intake['source_order'] ), true );
 		}
 		if ( ! empty( $intake['file_names'] ) && is_array( $intake['file_names'] ) ) {
 			$item->add_meta_data( 'Uploaded files', implode( ', ', array_map( 'wc_clean', $intake['file_names'] ) ), true );
@@ -871,6 +1375,420 @@ final class AIP_On_Model_Commerce {
 		wp_register_style( 'aip-on-model-commerce', false, array(), self::VERSION );
 		wp_enqueue_style( 'aip-on-model-commerce' );
 		wp_add_inline_style( 'aip-on-model-commerce', $css );
+	}
+
+	public static function add_admin_order_meta_boxes( $post_type, $post_or_order = null ) {
+		$screen  = function_exists( 'wc_get_page_screen_id' ) ? wc_get_page_screen_id( 'shop-order' ) : 'shop_order';
+		$screens = array_unique( array_filter( array( $screen, 'shop_order', 'woocommerce_page_wc-orders' ) ) );
+
+		foreach ( $screens as $s ) {
+			add_meta_box(
+				'aip_on_model_order_production',
+				'✨ On-Model Content Production & Deliverables',
+				array( __CLASS__, 'render_admin_order_meta_box' ),
+				$s,
+				'normal',
+				'high'
+			);
+
+			add_meta_box(
+				'aip_on_model_order_actions',
+				'⚡ On-Model Production Control',
+				array( __CLASS__, 'render_admin_order_actions_meta_box' ),
+				$s,
+				'side',
+				'high'
+			);
+		}
+	}
+
+	private static function get_admin_order( $post_or_order_object = null ) {
+		if ( $post_or_order_object instanceof WC_Order ) {
+			return $post_or_order_object;
+		}
+		if ( is_object( $post_or_order_object ) && isset( $post_or_order_object->ID ) ) {
+			return wc_get_order( $post_or_order_object->ID );
+		}
+		$order_id = 0;
+		if ( isset( $_GET['id'] ) ) {
+			$order_id = absint( $_GET['id'] );
+		} elseif ( isset( $_GET['post'] ) ) {
+			$order_id = absint( $_GET['post'] );
+		}
+		return $order_id ? wc_get_order( $order_id ) : false;
+	}
+
+	public static function render_admin_order_meta_box( $post_or_order_object = null ) {
+		$order = self::get_admin_order( $post_or_order_object );
+		if ( ! $order ) {
+			echo '<p>Order details unavailable.</p>';
+			return;
+		}
+
+		$order_id      = $order->get_id();
+		$order_number  = $order->get_order_number();
+		$status        = $order->get_status();
+		$status_label  = wc_get_order_status_name( $status );
+		$intake_email  = $order->get_meta( '_aip_intake_email' ) ?: $order->get_billing_email();
+		$submitted_at  = $order->get_meta( '_aip_intake_submitted_at' );
+
+		$reference = '';
+		$notes     = '';
+		$method    = '';
+		foreach ( $order->get_items() as $item ) {
+			foreach ( $item->get_formatted_meta_data( '' ) as $entry ) {
+				$key   = wp_strip_all_tags( $entry->display_key );
+				$value = wp_strip_all_tags( $entry->display_value );
+				if ( 'Amazon link / ASIN' === $key ) {
+					$reference = $value;
+				} elseif ( 'Customer instructions' === $key ) {
+					$notes = $value;
+				} elseif ( 'Product source' === $key ) {
+					$method = $value;
+				}
+			}
+		}
+
+		$raw_ref = '';
+		foreach ( $order->get_items() as $item ) {
+			$raw = $item->get_meta( '_aip_raw_reference' );
+			if ( $raw ) {
+				$raw_ref = $raw;
+				break;
+			}
+		}
+		$asin = self::extract_asin( $raw_ref ?: $reference );
+
+		$uploaded_files = $order->get_meta( '_aip_uploaded_files' );
+		$uploaded_files = is_array( $uploaded_files ) ? $uploaded_files : array();
+
+		$deliverables = $order->get_meta( '_aip_deliverables' );
+		$deliverables = is_array( $deliverables ) ? $deliverables : array();
+		$images       = array_values( array_filter( (array) ( $deliverables['images'] ?? array() ) ) );
+		$videos       = array_values( array_filter( (array) ( $deliverables['videos'] ?? array() ) ) );
+		$generated_at = $deliverables['generated_at'] ?? '';
+		$delivered_at = $deliverables['delivered_at'] ?? '';
+		$download_stats = $order->get_meta( '_aip_download_stats' );
+		$download_stats = is_array( $download_stats ) ? $download_stats : array();
+
+		$token = $order->get_meta( '_aip_delivery_token' );
+		$delivery_url = $token ? add_query_arg( array( 'aip_order_delivery' => $order_id, 'aip_token' => $token ), home_url( '/' ) ) : '';
+
+		?>
+		<div class="aip-admin-order-wrap">
+			<div class="aip-admin-header-bar">
+				<div>
+					<small class="aip-admin-tag">ON-MODEL CONTENT STUDIO</small>
+					<h3 class="aip-admin-title">Production Dashboard — Order #<?php echo esc_html( $order_number ); ?></h3>
+				</div>
+				<div class="aip-admin-status-wrap">
+					<span class="aip-admin-badge aip-badge-<?php echo esc_attr( $status ); ?>"><?php echo esc_html( $status_label ); ?></span>
+				</div>
+			</div>
+
+			<div class="aip-admin-grid">
+				<div class="aip-admin-card">
+					<div class="aip-card-header">
+						<h4>📦 Product Intake & Reference Assets</h4>
+					</div>
+					<div class="aip-card-body">
+						<?php if ( $asin ) : ?>
+							<div class="aip-asin-preview">
+								<img src="https://images-na.ssl-images-amazon.com/images/P/<?php echo esc_attr( $asin ); ?>.01.MAIN._AC_SY300_.jpg" alt="Amazon Product" class="aip-asin-img" onerror="this.style.display='none'">
+								<div class="aip-asin-info">
+									<strong>Amazon ASIN: <code><?php echo esc_html( $asin ); ?></code></strong>
+									<br><a href="https://www.amazon.com/dp/<?php echo esc_attr( $asin ); ?>" target="_blank" rel="noopener" class="button button-small" style="margin-top:6px;">Open Amazon Listing ↗</a>
+								</div>
+							</div>
+						<?php elseif ( $reference ) : ?>
+							<p><strong>Product Reference:</strong> <?php echo esc_html( $reference ); ?></p>
+						<?php endif; ?>
+
+						<?php if ( $method ) : ?>
+							<p><strong>Source Method:</strong> <?php echo esc_html( $method ); ?></p>
+						<?php endif; ?>
+
+						<?php if ( ! empty( $uploaded_files ) ) : ?>
+							<div class="aip-subhead">Customer Uploaded Reference Photos (<?php echo count( $uploaded_files ); ?>)</div>
+							<div class="aip-thumbs-grid">
+								<?php foreach ( $uploaded_files as $file ) :
+									$url  = is_array( $file ) ? ( $file['url'] ?? '' ) : ( is_string( $file ) ? $file : '' );
+									$name = is_array( $file ) ? ( $file['name'] ?? 'File' ) : 'File';
+									$is_img = preg_match( '/\.(jpg|jpeg|png|webp|gif)$/i', $url ) || strpos( $url, 'data:image' ) === 0;
+								?>
+									<a href="<?php echo esc_url( $url ?: '#' ); ?>" target="_blank" rel="noopener" class="aip-thumb-card">
+										<?php if ( $is_img && $url ) : ?>
+											<img src="<?php echo esc_url( $url ); ?>" alt="<?php echo esc_attr( $name ); ?>">
+										<?php else : ?>
+											<div class="aip-thumb-icon">📄</div>
+										<?php endif; ?>
+										<span><?php echo esc_html( $name ); ?></span>
+									</a>
+								<?php endforeach; ?>
+							</div>
+						<?php endif; ?>
+
+						<?php if ( $notes ) : ?>
+							<div class="aip-notes-box">
+								<strong>Customer Creative Instructions:</strong>
+								<p><?php echo nl2br( esc_html( $notes ) ); ?></p>
+							</div>
+						<?php endif; ?>
+					</div>
+				</div>
+
+				<div class="aip-admin-card">
+					<div class="aip-card-header">
+						<h4>🎬 Generated Content Deliverables</h4>
+						<?php if ( $generated_at ) : ?>
+							<span class="aip-time-note">Generated <?php echo esc_html( date( 'M j, g:i a', strtotime( $generated_at ) ) ); ?></span>
+						<?php endif; ?>
+					</div>
+					<div class="aip-card-body">
+						<?php if ( empty( $images ) && empty( $videos ) ) : ?>
+							<div class="aip-empty-deliverables">
+								<span class="aip-empty-icon">⏳</span>
+								<strong>No deliverables generated yet</strong>
+								<p>Trigger the Order Studio pipeline to generate try-on images and videos.</p>
+							</div>
+						<?php else : ?>
+							<div class="aip-deliverables-grid">
+								<?php foreach ( $images as $idx => $url ) : ?>
+									<div class="aip-media-card">
+										<a href="<?php echo esc_url( $url ); ?>" target="_blank" rel="noopener">
+											<img src="<?php echo esc_url( $url ); ?>" alt="On-model photo <?php echo $idx + 1; ?>">
+										</a>
+										<div class="aip-media-footer">
+											<span>Photo #<?php echo $idx + 1; ?></span>
+											<a href="<?php echo esc_url( $url ); ?>" download class="button button-small">Download ↓</a>
+										</div>
+									</div>
+								<?php endforeach; ?>
+								<?php foreach ( $videos as $idx => $url ) : ?>
+									<div class="aip-media-card">
+										<video controls playsinline preload="metadata" src="<?php echo esc_url( $url ); ?>"></video>
+										<div class="aip-media-footer">
+											<span>Video #<?php echo $idx + 1; ?></span>
+											<a href="<?php echo esc_url( $url ); ?>" download class="button button-small">Download ↓</a>
+										</div>
+									</div>
+								<?php endforeach; ?>
+							</div>
+
+							<?php if ( ! empty( $download_stats ) ) : ?>
+								<div class="aip-stats-box">
+									<strong>📊 Customer Downloads Tracker:</strong>
+									<ul>
+										<?php foreach ( $download_stats as $file_key => $stat ) : ?>
+											<li>
+												<code><?php echo esc_html( $file_key ); ?></code> —
+												Downloaded <strong><?php echo esc_html( $stat['count'] ?? 0 ); ?> time(s)</strong>
+												<?php if ( ! empty( $stat['last_downloaded_at'] ) ) : ?>
+													<small>(Last: <?php echo esc_html( date( 'M j, g:i a', strtotime( $stat['last_downloaded_at'] ) ) ); ?>)</small>
+												<?php endif; ?>
+											</li>
+										<?php endforeach; ?>
+									</ul>
+								</div>
+							<?php endif; ?>
+						<?php endif; ?>
+
+						<div class="aip-action-buttons">
+							<?php if ( ! empty( $images ) || ! empty( $videos ) ) : ?>
+								<button type="button" class="button button-primary button-large aip-btn-deliver-order" data-order-id="<?php echo esc_attr( $order_id ); ?>">
+									🚀 Deliver Files to Client Now
+								</button>
+							<?php endif; ?>
+
+							<?php if ( $delivery_url ) : ?>
+								<button type="button" class="button button-secondary aip-btn-copy-delivery" data-url="<?php echo esc_url( $delivery_url ); ?>">
+									📋 Copy Client Access Link
+								</button>
+								<a href="<?php echo esc_url( $delivery_url ); ?>" target="_blank" rel="noopener" class="button button-secondary">
+									👁️ Preview Client Delivery Page
+								</a>
+							<?php endif; ?>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	public static function render_admin_order_actions_meta_box( $post_or_order_object = null ) {
+		$order = self::get_admin_order( $post_or_order_object );
+		if ( ! $order ) {
+			return;
+		}
+
+		$order_id     = $order->get_id();
+		$status       = $order->get_status();
+		$intake_email = $order->get_meta( '_aip_intake_email' ) ?: $order->get_billing_email();
+		$token        = $order->get_meta( '_aip_delivery_token' );
+		$delivery_url = $token ? add_query_arg( array( 'aip_order_delivery' => $order_id, 'aip_token' => $token ), home_url( '/' ) ) : '';
+
+		?>
+		<div class="aip-sidebar-actions-wrap">
+			<p><strong>Quick Production Status Switcher:</strong></p>
+			<div class="aip-sidebar-status-group">
+				<button type="button" class="button widefat <?php echo 'content-queued' === $status ? 'button-primary' : ''; ?>" data-aip-status="content-queued" data-order-id="<?php echo esc_attr( $order_id ); ?>">1. Queued for production</button>
+				<button type="button" class="button widefat <?php echo 'content-creating' === $status ? 'button-primary' : ''; ?>" data-aip-status="content-creating" data-order-id="<?php echo esc_attr( $order_id ); ?>">2. Creating content</button>
+				<button type="button" class="button widefat <?php echo 'content-review' === $status ? 'button-primary' : ''; ?>" data-aip-status="content-review" data-order-id="<?php echo esc_attr( $order_id ); ?>">3. Ready for staff review</button>
+				<button type="button" class="button widefat <?php echo 'completed' === $status ? 'button-primary' : ''; ?>" data-aip-status="completed" data-order-id="<?php echo esc_attr( $order_id ); ?>">4. Deliver & Mark Completed</button>
+			</div>
+
+			<hr style="margin:16px 0;">
+
+			<p><strong>Client Contact Email:</strong><br><code><?php echo esc_html( $intake_email ); ?></code></p>
+
+			<?php if ( $delivery_url ) : ?>
+				<p><strong>Client Delivery Link:</strong></p>
+				<input type="text" readonly value="<?php echo esc_url( $delivery_url ); ?>" class="widefat" style="font-size:11px; margin-bottom:8px;" onclick="this.select();">
+				<button type="button" class="button button-small widefat aip-btn-copy-delivery" data-url="<?php echo esc_url( $delivery_url ); ?>">Copy Delivery Link</button>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	public static function ajax_update_order_status() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ), 403 );
+		}
+		$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+		$status   = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : '';
+		$order    = $order_id ? wc_get_order( $order_id ) : false;
+		if ( ! $order || ! $status ) {
+			wp_send_json_error( array( 'message' => 'Invalid parameters' ), 400 );
+		}
+
+		$order->update_status( $status, 'Status updated via On-Model Admin control panel', true );
+		wp_send_json_success( array(
+			'order_id'     => $order_id,
+			'status'       => $status,
+			'status_label' => wc_get_order_status_name( $status ),
+		) );
+	}
+
+	public static function ajax_deliver_order() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ), 403 );
+		}
+		$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+		$order    = $order_id ? wc_get_order( $order_id ) : false;
+		if ( ! $order ) {
+			wp_send_json_error( array( 'message' => 'Order not found' ), 404 );
+		}
+
+		$saved  = $order->get_meta( '_aip_deliverables' );
+		$images = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $saved['images'] ?? [] ) ) ) );
+		$videos = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $saved['videos'] ?? [] ) ) ) );
+		if ( empty( $images ) && empty( $videos ) ) {
+			wp_send_json_error( array( 'message' => 'No deliverables available to send' ), 400 );
+		}
+
+		$token = $order->get_meta( '_aip_delivery_token' );
+		if ( ! $token ) {
+			$token = wp_generate_password( 48, false, false );
+			$order->update_meta_data( '_aip_delivery_token', $token );
+		}
+		$deliverables = is_array( $saved ) ? $saved : array();
+		$deliverables['delivered_at'] = current_time( DATE_ATOM );
+		$order->update_meta_data( '_aip_deliverables', $deliverables );
+		$order->save();
+
+		$previous_status = $order->get_status();
+		$order->update_status( 'completed', 'Submitted deliverables attached to customer downloads and sent to client.', true );
+		if ( 'completed' === $previous_status ) {
+			$emails = WC()->mailer()->get_emails();
+			if ( isset( $emails['WC_Email_Customer_Completed_Order'] ) ) {
+				$emails['WC_Email_Customer_Completed_Order']->trigger( $order->get_id(), $order );
+			}
+		}
+
+		$delivery_url = add_query_arg( array( 'aip_order_delivery' => $order_id, 'aip_token' => $token ), home_url( '/' ) );
+		wp_send_json_success( array(
+			'order_id'     => $order_id,
+			'delivery_url' => $delivery_url,
+			'status'       => 'completed',
+			'status_label' => wc_get_order_status_name( 'completed' ),
+		) );
+	}
+
+	public static function admin_order_assets( $hook_suffix ) {
+		$screen    = get_current_screen();
+		$screen_id = $screen ? $screen->id : '';
+		if ( false === strpos( $screen_id, 'shop_order' ) && false === strpos( $screen_id, 'wc-orders' ) && 'post.php' !== $hook_suffix ) {
+			return;
+		}
+
+		$css = '
+		.aip-admin-order-wrap{background:#fff;border:1px solid #e2dbec;border-radius:12px;box-shadow:0 6px 20px rgba(32,18,54,.05);margin-top:10px;overflow:hidden}.aip-admin-header-bar{align-items:center;background:linear-gradient(135deg,#1b1525 0%,#2e2242 100%);color:#fff;display:flex;justify-content:space-between;padding:18px 24px}.aip-admin-tag{color:#b79bff;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}.aip-admin-title{color:#fff;font-size:20px;font-weight:800;margin:4px 0 0}.aip-admin-badge{background:#6846e6;border-radius:20px;color:#fff;font-size:12px;font-weight:700;padding:6px 14px;text-transform:capitalize}.aip-badge-completed{background:#10b981!important}.aip-badge-content-review{background:#f59e0b!important}.aip-badge-content-creating{background:#3b82f6!important}.aip-badge-content-queued{background:#8b5cf6!important}.aip-admin-grid{display:grid;gap:20px;grid-template-columns:1fr 1fr;padding:24px}@media(max-width:1080px){.aip-admin-grid{grid-template-columns:1fr}}.aip-admin-card{background:#faf8fd;border:1px solid #e7e0f0;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}.aip-card-header{align-items:center;background:#f1ecf9;border-bottom:1px solid #e4dcee;display:flex;justify-content:space-between;padding:12px 18px}.aip-card-header h4{color:#1e1829;font-size:15px;font-weight:750;margin:0}.aip-time-note{color:#766c82;font-size:11px}.aip-card-body{display:flex;flex:1;flex-direction:column;gap:14px;padding:18px}.aip-asin-preview{align-items:center;background:#fff;border:1px solid #e0d8eb;border-radius:8px;display:flex;gap:14px;padding:12px}.aip-asin-img{border-radius:6px;height:72px;object-fit:cover;width:60px}.aip-subhead{color:#5c5269;font-size:12px;font-weight:750;margin-top:6px}.aip-thumbs-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}.aip-thumb-card{background:#fff;border:1px solid #e2d9ee;border-radius:8px;color:#221b2d;display:block;overflow:hidden;text-align:center;text-decoration:none!important}.aip-thumb-card img{aspect-ratio:1;display:block;object-fit:cover;width:100%}.aip-thumb-card span{display:block;font-size:10px;font-weight:600;overflow:hidden;padding:5px 4px;text-overflow:ellipsis;white-space:nowrap}.aip-thumb-icon{align-items:center;background:#f3effc;display:flex;font-size:24px;height:70px;justify-content:center}.aip-notes-box{background:#fff;border:1px solid #e3dbeb;border-left:4px solid #6846e6;border-radius:6px;color:#352c42;font-size:12px;padding:12px 14px}.aip-notes-box p{margin:4px 0 0}.aip-empty-deliverables{background:#fff;border:2px dashed #e3dbed;border-radius:8px;padding:28px 16px;text-align:center}.aip-empty-icon{display:block;font-size:28px;margin-bottom:8px}.aip-deliverables-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}.aip-media-card{background:#fff;border:1px solid #e2d8ed;border-radius:8px;overflow:hidden}.aip-media-card img,.aip-media-card video{aspect-ratio:9/16;background:#140f1a;display:block;object-fit:cover;width:100%}.aip-media-footer{align-items:center;display:flex;justify-content:space-between;padding:8px}.aip-media-footer span{font-size:10px;font-weight:700}.aip-stats-box{background:#f3effc;border:1px solid #ded4ef;border-radius:6px;font-size:11px;padding:10px 14px}.aip-stats-box ul{margin:4px 0 0;padding-left:16px}.aip-action-buttons{display:flex;flex-wrap:wrap;gap:10px;margin-top:auto;padding-top:10px}.aip-sidebar-status-group{display:flex;flex-direction:column;gap:6px;margin-top:6px}.aip-sidebar-status-group button{font-size:11px!important;text-align:left!important}
+		';
+
+		wp_register_style( 'aip-admin-order-style', false, array(), self::VERSION );
+		wp_enqueue_style( 'aip-admin-order-style' );
+		wp_add_inline_style( 'aip-admin-order-style', $css );
+
+		$js = "
+		jQuery(document).ready(function($){
+			$(document).on('click', '.aip-sidebar-status-group button, [data-aip-status]', function(e){
+				e.preventDefault();
+				var btn = $(this);
+				var orderId = btn.data('order-id');
+				var status = btn.data('aip-status');
+				if(!orderId || !status) return;
+				btn.prop('disabled', true);
+				$.post(ajaxurl, {
+					action: 'aip_admin_update_order_status',
+					order_id: orderId,
+					status: status
+				}, function(res){
+					btn.prop('disabled', false);
+					if(res.success){
+						window.location.reload();
+					} else {
+						alert(res.data && res.data.message ? res.data.message : 'Error updating status');
+					}
+				});
+			});
+
+			$(document).on('click', '.aip-btn-deliver-order', function(e){
+				e.preventDefault();
+				var btn = $(this);
+				var orderId = btn.data('order-id');
+				if(!orderId || !confirm('Deliver this content to client and send completion email now?')) return;
+				btn.prop('disabled', true).text('Delivering...');
+				$.post(ajaxurl, {
+					action: 'aip_admin_deliver_order',
+					order_id: orderId
+				}, function(res){
+					btn.prop('disabled', false);
+					if(res.success){
+						alert('Deliverables successfully sent to client!');
+						window.location.reload();
+					} else {
+						alert(res.data && res.data.message ? res.data.message : 'Delivery failed');
+					}
+				});
+			});
+
+			$(document).on('click', '.aip-btn-copy-delivery', function(e){
+				e.preventDefault();
+				var url = $(this).data('url');
+				if(!url) return;
+				if(navigator.clipboard && navigator.clipboard.writeText){
+					navigator.clipboard.writeText(url).then(function(){
+						alert('Client delivery link copied to clipboard!');
+					});
+				} else {
+					prompt('Copy client delivery URL:', url);
+				}
+			});
+		});
+		";
+
+		wp_add_inline_script( 'jquery', $js, 'after' );
 	}
 }
 
