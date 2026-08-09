@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering, production, and private delivery for Style by REii shoppable videos.
- * Version: 0.5.6
+ * Version: 0.5.7
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -27,7 +27,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.6';
+	const VERSION     = '0.5.7';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -65,8 +65,16 @@ final class AIP_On_Model_Commerce {
 		add_action( 'wp_ajax_aip_admin_update_order_status', array( __CLASS__, 'ajax_update_order_status' ) );
 		add_action( 'wp_ajax_aip_admin_deliver_order', array( __CLASS__, 'ajax_deliver_order' ) );
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'github_update_transient' ) );
+		add_filter( 'update_plugins_github.com', array( __CLASS__, 'github_native_update' ), 10, 4 );
 		add_filter( 'plugins_api', array( __CLASS__, 'github_plugin_information' ), 20, 3 );
+		add_action( 'load-update-core.php', array( __CLASS__, 'clear_github_cache_for_forced_check' ) );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_github_update_cache' ), 10, 2 );
+	}
+
+	public static function clear_github_cache_for_forced_check() {
+		if ( current_user_can( 'update_plugins' ) && isset( $_GET['force-check'] ) ) {
+			delete_site_transient( self::UPDATE_CACHE_KEY );
+		}
 	}
 
 	private static function github_release() {
@@ -141,6 +149,24 @@ final class AIP_On_Model_Commerce {
 			'tested'      => get_bloginfo( 'version' ),
 		);
 		return $transient;
+	}
+
+	public static function github_native_update( $update, $plugin_data, $plugin_file, $locales ) {
+		$release = self::github_release();
+		if ( ! $release || ! version_compare( self::VERSION, $release['version'], '<' ) ) {
+			return false;
+		}
+
+		return array(
+			'id'           => 'https://github.com/' . self::GITHUB_REPOSITORY,
+			'slug'         => 'on-model-commerce-github',
+			'version'      => $release['version'],
+			'url'          => $release['url'],
+			'package'      => $release['package'],
+			'tested'       => get_bloginfo( 'version' ),
+			'requires_php' => '7.4',
+			'autoupdate'   => false,
+		);
 	}
 
 	public static function github_plugin_information( $result, $action, $args ) {
