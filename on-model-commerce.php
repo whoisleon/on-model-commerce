@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.16
+ * Version: 0.5.17
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -144,7 +144,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.16';
+	const VERSION     = '0.5.17';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
