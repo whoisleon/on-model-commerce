@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.24
+ * Version: 0.5.25
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -119,19 +119,12 @@ add_action( 'admin_notices', 'aip_github_updater_notice' );
 // copy is still active during the one-time migration, deactivate that file and
 // let this copy take over on the next request instead of triggering a duplicate
 // class fatal error.
-if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
-	if ( is_admin() && function_exists( 'deactivate_plugins' ) ) {
-		foreach ( (array) get_option( 'active_plugins', array() ) as $active_plugin ) {
-			if ( plugin_basename( __FILE__ ) !== $active_plugin && 'on-model-commerce.php' === basename( $active_plugin ) ) {
-				deactivate_plugins( $active_plugin, true );
-			}
-		}
-	}
+if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 	return;
 }
 
-final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.24';
+final class AIP_On_Model_Commerce_GitHub {
+	const VERSION     = '0.5.25';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -2058,4 +2051,4 @@ final class AIP_On_Model_Commerce {
 	}
 }
 
-add_action( 'plugins_loaded', array( 'AIP_On_Model_Commerce', 'init' ) );
+add_action( 'plugins_loaded', array( 'AIP_On_Model_Commerce_GitHub', 'init' ) );
