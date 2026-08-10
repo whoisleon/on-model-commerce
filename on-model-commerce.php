@@ -2,13 +2,130 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.15
+ * Version: 0.5.16
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
  */
 
 defined( 'ABSPATH' ) || exit;
+
+// Keep the updater outside the legacy plugin class. Some WordPress.com sites
+// still preload an orphaned copy of that class, so class-scoped hooks can be
+// skipped before this plugin gets a chance to repair or replace itself.
+if ( ! function_exists( 'aip_github_updater_can_manage' ) ) {
+function aip_github_updater_can_manage() {
+	return current_user_can( 'update_plugins' ) || current_user_can( 'install_plugins' );
+}
+
+function aip_github_updater_action_links( $links, $plugin_file ) {
+	if ( plugin_basename( __FILE__ ) !== $plugin_file || ! aip_github_updater_can_manage() ) {
+		return $links;
+	}
+	$url = wp_nonce_url(
+		admin_url( 'admin-post.php?action=aip_github_update' ),
+		'aip_github_update'
+	);
+	array_unshift(
+		$links,
+		'<a href="' . esc_url( $url ) . '"><strong>' . esc_html__( 'Update from GitHub', 'on-model-commerce' ) . '</strong></a>'
+	);
+	return $links;
+}
+
+function aip_github_updater_redirect( $status ) {
+	wp_safe_redirect(
+		add_query_arg( 'aip_github_update', sanitize_key( $status ), self_admin_url( 'plugins.php' ) )
+	);
+	exit;
+}
+
+function aip_github_updater_run() {
+	if ( ! aip_github_updater_can_manage() ) {
+		wp_die(
+			esc_html__( 'You are not allowed to update plugins.', 'on-model-commerce' ),
+			esc_html__( 'Plugin update denied', 'on-model-commerce' ),
+			array( 'response' => 403 )
+		);
+	}
+	check_admin_referer( 'aip_github_update' );
+
+	$response = wp_remote_get(
+		'https://raw.githubusercontent.com/whoisleon/on-model-commerce/main/readme.txt?cache=' . time(),
+		array(
+			'headers' => array( 'User-Agent' => 'Style-by-REii-Commerce-Updater' ),
+			'timeout' => 15,
+		)
+	);
+	if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+		aip_github_updater_redirect( 'unavailable' );
+	}
+	$readme = wp_remote_retrieve_body( $response );
+	if ( ! preg_match( '/^Stable tag:\s*(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s*$/mi', $readme, $matches ) ) {
+		aip_github_updater_redirect( 'unavailable' );
+	}
+
+	$latest      = $matches[1];
+	$plugin_file = plugin_basename( __FILE__ );
+	$plugin_data = get_file_data( __FILE__, array( 'version' => 'Version' ), 'plugin' );
+	$current     = isset( $plugin_data['version'] ) ? $plugin_data['version'] : '0.0.0';
+	if ( ! version_compare( $current, $latest, '<' ) ) {
+		aip_github_updater_redirect( 'current' );
+	}
+
+	$transient = get_site_transient( 'update_plugins' );
+	if ( ! is_object( $transient ) ) {
+		$transient = new stdClass();
+	}
+	if ( ! isset( $transient->response ) || ! is_array( $transient->response ) ) {
+		$transient->response = array();
+	}
+	if ( ! isset( $transient->checked ) || ! is_array( $transient->checked ) ) {
+		$transient->checked = array();
+	}
+	$transient->response[ $plugin_file ] = (object) array(
+		'id'           => 'https://github.com/whoisleon/on-model-commerce',
+		'slug'         => 'on-model-commerce-github',
+		'plugin'       => $plugin_file,
+		'new_version'  => $latest,
+		'url'          => 'https://github.com/whoisleon/on-model-commerce/releases/tag/v' . $latest,
+		'package'      => 'https://github.com/whoisleon/on-model-commerce/releases/download/v' . $latest . '/on-model-commerce.zip',
+		'tested'       => get_bloginfo( 'version' ),
+		'requires_php' => '7.4',
+	);
+	$transient->checked[ $plugin_file ] = $current;
+	$transient->last_checked            = time();
+	set_site_transient( 'update_plugins', $transient );
+
+	$upgrade_url = wp_nonce_url(
+		self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( $plugin_file ) ),
+		'upgrade-plugin_' . $plugin_file
+	);
+	wp_safe_redirect( $upgrade_url );
+	exit;
+}
+
+function aip_github_updater_notice() {
+	if ( empty( $_GET['aip_github_update'] ) || ! aip_github_updater_can_manage() ) {
+		return;
+	}
+	$status = sanitize_key( wp_unslash( $_GET['aip_github_update'] ) );
+	if ( 'current' === $status ) {
+		$message = __( 'Style by REii Commerce is already on the latest GitHub release.', 'on-model-commerce' );
+		$class   = 'notice notice-success is-dismissible';
+	} elseif ( 'unavailable' === $status ) {
+		$message = __( 'The latest GitHub release could not be reached. Please try again shortly.', 'on-model-commerce' );
+		$class   = 'notice notice-error is-dismissible';
+	} else {
+		return;
+	}
+	echo '<div class="' . esc_attr( $class ) . '"><p>' . esc_html( $message ) . '</p></div>';
+}
+
+add_filter( 'plugin_action_links', 'aip_github_updater_action_links', 10, 2 );
+add_action( 'admin_post_aip_github_update', 'aip_github_updater_run' );
+add_action( 'admin_notices', 'aip_github_updater_notice' );
+}
 
 // The GitHub-enabled build intentionally uses a new permanent directory to
 // escape legacy WordPress.com folders that cannot be overwritten. If an older
@@ -27,7 +144,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.15';
+	const VERSION     = '0.5.16';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -67,9 +184,6 @@ final class AIP_On_Model_Commerce {
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'github_update_transient' ) );
 		add_filter( 'update_plugins_github.com', array( __CLASS__, 'github_native_update' ), 10, 4 );
 		add_filter( 'plugins_api', array( __CLASS__, 'github_plugin_information' ), 20, 3 );
-		add_filter( 'plugin_action_links', array( __CLASS__, 'github_plugin_action_links' ), 10, 2 );
-		add_action( 'admin_post_aip_github_update', array( __CLASS__, 'github_manual_update' ) );
-		add_action( 'admin_notices', array( __CLASS__, 'github_manual_update_notice' ) );
 		add_action( 'load-update-core.php', array( __CLASS__, 'clear_github_cache_for_forced_check' ) );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_github_update_cache' ), 10, 2 );
 	}
