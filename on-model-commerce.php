@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering, production, and private delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.8
+ * Version: 0.5.9
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -27,7 +27,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.8';
+	const VERSION     = '0.5.9';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -97,15 +97,13 @@ final class AIP_On_Model_Commerce {
 			)
 		);
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-			set_site_transient( self::UPDATE_CACHE_KEY, 'none', HOUR_IN_SECONDS );
-			return false;
+			return self::github_release_from_readme();
 		}
 
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		$tag  = is_array( $data ) ? (string) ( $data['tag_name'] ?? '' ) : '';
 		if ( ! preg_match( '/^v(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/', $tag, $matches ) ) {
-			set_site_transient( self::UPDATE_CACHE_KEY, 'none', HOUR_IN_SECONDS );
-			return false;
+			return self::github_release_from_readme();
 		}
 
 		$package = '';
@@ -116,8 +114,7 @@ final class AIP_On_Model_Commerce {
 			}
 		}
 		if ( ! $package ) {
-			set_site_transient( self::UPDATE_CACHE_KEY, 'none', HOUR_IN_SECONDS );
-			return false;
+			return self::github_release_from_readme();
 		}
 
 		$release = array(
@@ -128,6 +125,37 @@ final class AIP_On_Model_Commerce {
 			'published_at' => sanitize_text_field( (string) ( $data['published_at'] ?? '' ) ),
 		);
 		set_site_transient( self::UPDATE_CACHE_KEY, $release, 6 * HOUR_IN_SECONDS );
+		return $release;
+	}
+
+	private static function github_release_from_readme() {
+		$response = wp_remote_get(
+			'https://raw.githubusercontent.com/' . self::GITHUB_REPOSITORY . '/main/readme.txt',
+			array(
+				'headers' => array( 'User-Agent' => 'Tech-by-Leon-On-Model-Commerce/' . self::VERSION ),
+				'timeout' => 10,
+			)
+		);
+		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			set_site_transient( self::UPDATE_CACHE_KEY, 'none', 5 * MINUTE_IN_SECONDS );
+			return false;
+		}
+
+		$readme = wp_remote_retrieve_body( $response );
+		if ( ! preg_match( '/^Stable tag:\s*(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s*$/mi', $readme, $matches ) ) {
+			set_site_transient( self::UPDATE_CACHE_KEY, 'none', 5 * MINUTE_IN_SECONDS );
+			return false;
+		}
+
+		$version = $matches[1];
+		$release = array(
+			'version'      => $version,
+			'package'      => 'https://github.com/' . self::GITHUB_REPOSITORY . '/releases/download/v' . $version . '/on-model-commerce.zip',
+			'url'          => 'https://github.com/' . self::GITHUB_REPOSITORY . '/releases/tag/v' . $version,
+			'body'         => 'See the GitHub release for changes.',
+			'published_at' => gmdate( DATE_ATOM ),
+		);
+		set_site_transient( self::UPDATE_CACHE_KEY, $release, 15 * MINUTE_IN_SECONDS );
 		return $release;
 	}
 
