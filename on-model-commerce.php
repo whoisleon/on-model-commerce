@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.26
+ * Version: 0.5.27
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -114,6 +114,18 @@ add_action( 'admin_post_aip_github_update', 'aip_github_updater_run' );
 add_action( 'admin_notices', 'aip_github_updater_notice' );
 }
 
+// Register the order API independently from the plugin class bootstrap. A
+// legacy duplicate can define the class before this file is loaded, but it must
+// never be able to suppress the REST namespace used by Order Studio.
+if ( ! function_exists( 'aip_register_order_api_routes' ) ) {
+function aip_register_order_api_routes() {
+	if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
+		AIP_On_Model_Commerce_GitHub::register_order_api();
+	}
+}
+add_action( 'rest_api_init', 'aip_register_order_api_routes' );
+}
+
 // The GitHub-enabled build intentionally uses a new permanent directory to
 // escape legacy WordPress.com folders that cannot be overwritten. If an older
 // copy is still active during the one-time migration, deactivate that file and
@@ -124,7 +136,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.26';
+	const VERSION     = '0.5.27';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -151,7 +163,6 @@ final class AIP_On_Model_Commerce_GitHub {
 		add_filter( 'woocommerce_order_item_get_formatted_meta_data', array( __CLASS__, 'filter_order_item_display_meta' ), 10, 2 );
 		add_filter( 'woocommerce_order_item_name', array( __CLASS__, 'add_item_thumbnail_to_confirmation' ), 10, 3 );
 		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'apply_intake_to_order' ), 10, 2 );
-		add_action( 'rest_api_init', array( __CLASS__, 'register_order_api' ) );
 		add_action( 'woocommerce_email_after_order_table', array( __CLASS__, 'email_delivery_links' ), 20, 4 );
 		add_filter( 'woocommerce_email_subject_customer_completed_order', array( __CLASS__, 'custom_completed_email_subject' ), 10, 2 );
 		add_filter( 'woocommerce_email_heading_customer_completed_order', array( __CLASS__, 'custom_completed_email_heading' ), 10, 2 );
