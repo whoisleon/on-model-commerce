@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.23
+ * Version: 0.5.24
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -72,40 +72,18 @@ function aip_github_updater_run() {
 		}
 	}
 
-	$transient = get_site_transient( 'update_plugins' );
-	if ( ! is_object( $transient ) ) {
-		$transient = new stdClass();
-	}
-	if ( ! isset( $transient->response ) || ! is_array( $transient->response ) ) {
-		$transient->response = array();
-	}
-	if ( ! isset( $transient->checked ) || ! is_array( $transient->checked ) ) {
-		$transient->checked = array();
-	}
-	$transient->response[ $plugin_file ] = (object) array(
-		'id'           => 'https://github.com/whoisleon/on-model-commerce',
-		'slug'         => 'on-model-commerce-github',
-		'plugin'       => $plugin_file,
-		'new_version'  => $latest,
-		'url'          => 'https://github.com/whoisleon/on-model-commerce/releases/latest',
-		'package'      => 'https://github.com/whoisleon/on-model-commerce/releases/latest/download/on-model-commerce.zip',
-		'tested'       => get_bloginfo( 'version' ),
-		'requires_php' => '7.4',
+	require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+	$skin     = new Automatic_Upgrader_Skin();
+	$upgrader = new Plugin_Upgrader( $skin );
+	$result   = $upgrader->install(
+		'https://github.com/whoisleon/on-model-commerce/releases/latest/download/on-model-commerce.zip',
+		array( 'overwrite_package' => true )
 	);
-	$transient->checked[ $plugin_file ] = $current;
-	$transient->last_checked            = time();
-	set_site_transient( 'update_plugins', $transient );
-
-	$upgrade_url = add_query_arg(
-		array(
-			'action'   => 'upgrade-plugin',
-			'plugin'   => $plugin_file,
-			'_wpnonce' => wp_create_nonce( 'upgrade-plugin_' . $plugin_file ),
-		),
-		self_admin_url( 'update.php' )
-	);
-	wp_safe_redirect( $upgrade_url );
-	exit;
+	if ( is_wp_error( $result ) || ! $result ) {
+		aip_github_updater_redirect( 'failed' );
+	}
+	wp_clean_plugins_cache( true );
+	aip_github_updater_redirect( 'updated' );
 }
 
 function aip_github_updater_notice() {
@@ -118,6 +96,12 @@ function aip_github_updater_notice() {
 		$class   = 'notice notice-success is-dismissible';
 	} elseif ( 'unavailable' === $status ) {
 		$message = __( 'The latest GitHub release could not be reached. Please try again shortly.', 'on-model-commerce' );
+		$class   = 'notice notice-error is-dismissible';
+	} elseif ( 'updated' === $status ) {
+		$message = __( 'Style by REii Commerce was updated from the latest GitHub release.', 'on-model-commerce' );
+		$class   = 'notice notice-success is-dismissible';
+	} elseif ( 'failed' === $status ) {
+		$message = __( 'WordPress could not install the latest GitHub release. Please try again shortly.', 'on-model-commerce' );
 		$class   = 'notice notice-error is-dismissible';
 	} else {
 		return;
@@ -147,7 +131,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.23';
+	const VERSION     = '0.5.24';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
