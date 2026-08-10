@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.13
+ * Version: 0.5.14
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -27,7 +27,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.13';
+	const VERSION     = '0.5.14';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -67,7 +67,7 @@ final class AIP_On_Model_Commerce {
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'github_update_transient' ) );
 		add_filter( 'update_plugins_github.com', array( __CLASS__, 'github_native_update' ), 10, 4 );
 		add_filter( 'plugins_api', array( __CLASS__, 'github_plugin_information' ), 20, 3 );
-		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( __CLASS__, 'github_plugin_action_links' ) );
+		add_filter( 'plugin_action_links', array( __CLASS__, 'github_plugin_action_links' ), 10, 2 );
 		add_action( 'admin_post_aip_github_update', array( __CLASS__, 'github_manual_update' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'github_manual_update_notice' ) );
 		add_action( 'load-update-core.php', array( __CLASS__, 'clear_github_cache_for_forced_check' ) );
@@ -223,7 +223,10 @@ final class AIP_On_Model_Commerce {
 		);
 	}
 
-	public static function github_plugin_action_links( $links ) {
+	public static function github_plugin_action_links( $links, $plugin_file ) {
+		if ( plugin_basename( __FILE__ ) !== $plugin_file ) {
+			return $links;
+		}
 		if ( ! current_user_can( 'update_plugins' ) ) {
 			return $links;
 		}
