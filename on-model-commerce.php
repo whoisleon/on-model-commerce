@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.19
+ * Version: 0.5.20
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -60,7 +60,11 @@ function aip_github_updater_run() {
 	$plugin_file = plugin_basename( __FILE__ );
 	$plugin_data = get_file_data( __FILE__, array( 'version' => 'Version' ), 'plugin' );
 	$current     = isset( $plugin_data['version'] ) ? $plugin_data['version'] : '0.0.0';
-	$latest      = $current;
+	// WordPress requires a version greater than the installed plugin before it
+	// will hand a package to the upgrader. Use a sentinel only when the host
+	// blocks GitHub's optional readme request; the installed ZIP still carries
+	// and displays its real semantic version.
+	$latest      = '999.0.0';
 	if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
 		$readme = wp_remote_retrieve_body( $response );
 		if ( preg_match( '/^Stable tag:\s*(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s*$/mi', $readme, $matches ) ) {
@@ -139,7 +143,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.19';
+	const VERSION     = '0.5.20';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
