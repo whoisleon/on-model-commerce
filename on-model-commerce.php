@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.12
+ * Version: 0.5.13
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -27,7 +27,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.12';
+	const VERSION     = '0.5.13';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -67,6 +67,9 @@ final class AIP_On_Model_Commerce {
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'github_update_transient' ) );
 		add_filter( 'update_plugins_github.com', array( __CLASS__, 'github_native_update' ), 10, 4 );
 		add_filter( 'plugins_api', array( __CLASS__, 'github_plugin_information' ), 20, 3 );
+		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( __CLASS__, 'github_plugin_action_links' ) );
+		add_action( 'admin_post_aip_github_update', array( __CLASS__, 'github_manual_update' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'github_manual_update_notice' ) );
 		add_action( 'load-update-core.php', array( __CLASS__, 'clear_github_cache_for_forced_check' ) );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_github_update_cache' ), 10, 2 );
 	}
@@ -218,6 +221,103 @@ final class AIP_On_Model_Commerce {
 				'changelog'   => $release['body'] ?: 'See the GitHub release for changes.',
 			),
 		);
+	}
+
+	public static function github_plugin_action_links( $links ) {
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			return $links;
+		}
+
+		$url = wp_nonce_url(
+			admin_url( 'admin-post.php?action=aip_github_update' ),
+			'aip_github_update'
+		);
+		array_unshift(
+			$links,
+			'<a href="' . esc_url( $url ) . '"><strong>' . esc_html__( 'Update from GitHub', 'on-model-commerce' ) . '</strong></a>'
+		);
+		return $links;
+	}
+
+	public static function github_manual_update() {
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			wp_die(
+				esc_html__( 'You are not allowed to update plugins.', 'on-model-commerce' ),
+				esc_html__( 'Plugin update denied', 'on-model-commerce' ),
+				array( 'response' => 403 )
+			);
+		}
+		check_admin_referer( 'aip_github_update' );
+
+		delete_site_transient( self::UPDATE_CACHE_KEY );
+		$release = self::github_release( true );
+		if ( ! $release ) {
+			self::github_manual_update_redirect( 'unavailable' );
+		}
+		if ( ! version_compare( self::VERSION, $release['version'], '<' ) ) {
+			self::github_manual_update_redirect( 'current' );
+		}
+
+		$plugin_file = plugin_basename( __FILE__ );
+		$transient   = get_site_transient( 'update_plugins' );
+		if ( ! is_object( $transient ) ) {
+			$transient = new stdClass();
+		}
+		if ( ! isset( $transient->response ) || ! is_array( $transient->response ) ) {
+			$transient->response = array();
+		}
+		if ( ! isset( $transient->checked ) || ! is_array( $transient->checked ) ) {
+			$transient->checked = array();
+		}
+
+		$transient->response[ $plugin_file ] = (object) array(
+			'id'           => 'https://github.com/' . self::GITHUB_REPOSITORY,
+			'slug'         => 'on-model-commerce-github',
+			'plugin'       => $plugin_file,
+			'new_version'  => $release['version'],
+			'url'          => $release['url'],
+			'package'      => $release['package'],
+			'tested'       => get_bloginfo( 'version' ),
+			'requires_php' => '7.4',
+		);
+		$transient->checked[ $plugin_file ] = self::VERSION;
+		$transient->last_checked            = time();
+		set_site_transient( 'update_plugins', $transient );
+
+		$upgrade_url = wp_nonce_url(
+			self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( $plugin_file ) ),
+			'upgrade-plugin_' . $plugin_file
+		);
+		wp_safe_redirect( $upgrade_url );
+		exit;
+	}
+
+	private static function github_manual_update_redirect( $status ) {
+		wp_safe_redirect(
+			add_query_arg(
+				'aip_github_update',
+				sanitize_key( $status ),
+				self_admin_url( 'plugins.php' )
+			)
+		);
+		exit;
+	}
+
+	public static function github_manual_update_notice() {
+		if ( empty( $_GET['aip_github_update'] ) || ! current_user_can( 'update_plugins' ) ) {
+			return;
+		}
+		$status = sanitize_key( wp_unslash( $_GET['aip_github_update'] ) );
+		if ( 'current' === $status ) {
+			$message = __( 'Style by REii Commerce is already on the latest GitHub release.', 'on-model-commerce' );
+			$class   = 'notice notice-success is-dismissible';
+		} elseif ( 'unavailable' === $status ) {
+			$message = __( 'The latest GitHub release could not be reached. Please try again shortly.', 'on-model-commerce' );
+			$class   = 'notice notice-error is-dismissible';
+		} else {
+			return;
+		}
+		echo '<div class="' . esc_attr( $class ) . '"><p>' . esc_html( $message ) . '</p></div>';
 	}
 
 	public static function clear_github_update_cache( $upgrader, $options ) {
