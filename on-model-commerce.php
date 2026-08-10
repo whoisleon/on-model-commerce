@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.10
+ * Version: 0.5.11
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -27,7 +27,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.10';
+	const VERSION     = '0.5.11';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -77,12 +77,12 @@ final class AIP_On_Model_Commerce {
 		}
 	}
 
-	private static function github_release() {
+	private static function github_release( $force = false ) {
 		$cached = get_site_transient( self::UPDATE_CACHE_KEY );
-		if ( 'none' === $cached ) {
+		if ( ! $force && 'none' === $cached ) {
 			return false;
 		}
-		if ( is_array( $cached ) ) {
+		if ( ! $force && is_array( $cached ) ) {
 			return $cached;
 		}
 
@@ -163,7 +163,7 @@ final class AIP_On_Model_Commerce {
 		if ( ! is_object( $transient ) || empty( $transient->checked ) ) {
 			return $transient;
 		}
-		$release = self::github_release();
+		$release = self::github_release( true );
 		if ( ! $release || ! version_compare( self::VERSION, $release['version'], '<' ) ) {
 			return $transient;
 		}
@@ -180,7 +180,7 @@ final class AIP_On_Model_Commerce {
 	}
 
 	public static function github_native_update( $update, $plugin_data, $plugin_file, $locales ) {
-		$release = self::github_release();
+		$release = self::github_release( true );
 		if ( ! $release || ! version_compare( self::VERSION, $release['version'], '<' ) ) {
 			return false;
 		}
