@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.21
+ * Version: 0.5.22
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -96,9 +96,13 @@ function aip_github_updater_run() {
 	$transient->last_checked            = time();
 	set_site_transient( 'update_plugins', $transient );
 
-	$upgrade_url = wp_nonce_url(
-		self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( $plugin_file ) ),
-		'upgrade-plugin_' . $plugin_file
+	$upgrade_url = add_query_arg(
+		array(
+			'action'   => 'upgrade-plugin',
+			'plugin'   => $plugin_file,
+			'_wpnonce' => wp_create_nonce( 'upgrade-plugin_' . $plugin_file ),
+		),
+		self_admin_url( 'update.php' )
 	);
 	wp_safe_redirect( $upgrade_url );
 	exit;
@@ -143,7 +147,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.21';
+	const VERSION     = '0.5.22';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -400,9 +404,13 @@ final class AIP_On_Model_Commerce {
 		$transient->last_checked            = time();
 		set_site_transient( 'update_plugins', $transient );
 
-		$upgrade_url = wp_nonce_url(
-			self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( $plugin_file ) ),
-			'upgrade-plugin_' . $plugin_file
+		$upgrade_url = add_query_arg(
+			array(
+				'action'   => 'upgrade-plugin',
+				'plugin'   => $plugin_file,
+				'_wpnonce' => wp_create_nonce( 'upgrade-plugin_' . $plugin_file ),
+			),
+			self_admin_url( 'update.php' )
 		);
 		wp_safe_redirect( $upgrade_url );
 		exit;
