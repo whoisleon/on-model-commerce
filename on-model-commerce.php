@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Style by REii Commerce
  * Description: WooCommerce ordering and private client delivery for Style by REii shoppable UGC videos.
- * Version: 0.5.14
+ * Version: 0.5.15
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -27,7 +27,7 @@ if ( class_exists( 'AIP_On_Model_Commerce', false ) ) {
 }
 
 final class AIP_On_Model_Commerce {
-	const VERSION     = '0.5.14';
+	const VERSION     = '0.5.15';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -227,7 +227,7 @@ final class AIP_On_Model_Commerce {
 		if ( plugin_basename( __FILE__ ) !== $plugin_file ) {
 			return $links;
 		}
-		if ( ! current_user_can( 'update_plugins' ) ) {
+		if ( ! self::can_manage_github_updates() ) {
 			return $links;
 		}
 
@@ -243,7 +243,7 @@ final class AIP_On_Model_Commerce {
 	}
 
 	public static function github_manual_update() {
-		if ( ! current_user_can( 'update_plugins' ) ) {
+		if ( ! self::can_manage_github_updates() ) {
 			wp_die(
 				esc_html__( 'You are not allowed to update plugins.', 'on-model-commerce' ),
 				esc_html__( 'Plugin update denied', 'on-model-commerce' ),
@@ -306,8 +306,12 @@ final class AIP_On_Model_Commerce {
 		exit;
 	}
 
+	private static function can_manage_github_updates() {
+		return current_user_can( 'update_plugins' ) || current_user_can( 'install_plugins' );
+	}
+
 	public static function github_manual_update_notice() {
-		if ( empty( $_GET['aip_github_update'] ) || ! current_user_can( 'update_plugins' ) ) {
+		if ( empty( $_GET['aip_github_update'] ) || ! self::can_manage_github_updates() ) {
 			return;
 		}
 		$status = sanitize_key( wp_unslash( $_GET['aip_github_update'] ) );
