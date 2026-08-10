@@ -28,6 +28,7 @@ jobs:
           set -euo pipefail
           mkdir -p build/on-model-commerce-github
           cp on-model-commerce.php readme.txt build/on-model-commerce-github/
+          cp -R assets build/on-model-commerce-github/
           cd build
           zip -r -X ../on-model-commerce.zip on-model-commerce-github
 
