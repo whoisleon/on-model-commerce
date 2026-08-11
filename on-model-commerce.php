@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.36
+ * Version: 0.5.37
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -137,8 +137,29 @@ add_action( 'wp_enqueue_scripts', 'aip_reii_checkout_fallback_bridge' );
 // migrated hosts preload an older copy of the class before this plugin, but the
 // current popup must still get a compact, address-free Stripe checkout.
 if ( ! function_exists( 'aip_reii_is_embedded_checkout' ) ) {
+function aip_reii_has_service_checkout_context() {
+	if ( isset( $_GET['aip_embedded'] ) ) {
+		return true;
+	}
+	if ( ! function_exists( 'WC' ) ) {
+		return false;
+	}
+	if ( WC()->session && WC()->session->get( 'aip_intake' ) ) {
+		return true;
+	}
+	if ( WC()->cart ) {
+		foreach ( WC()->cart->get_cart() as $cart_item ) {
+			$product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+			if ( $product && 'on-model-content-order' === $product->get_sku() ) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 function aip_reii_is_embedded_checkout() {
-	return function_exists( 'is_checkout' ) && is_checkout() && isset( $_GET['aip_embedded'] );
+	return function_exists( 'is_checkout' ) && is_checkout() && aip_reii_has_service_checkout_context();
 }
 
 function aip_reii_embedded_body_class( $classes ) {
@@ -150,7 +171,7 @@ function aip_reii_embedded_body_class( $classes ) {
 }
 
 function aip_reii_embedded_default_fields( $fields ) {
-	if ( ! aip_reii_is_embedded_checkout() ) {
+	if ( ! aip_reii_has_service_checkout_context() ) {
 		return $fields;
 	}
 	foreach ( $fields as $key => $field ) {
@@ -160,7 +181,7 @@ function aip_reii_embedded_default_fields( $fields ) {
 }
 
 function aip_reii_embedded_checkout_fields( $fields ) {
-	if ( ! aip_reii_is_embedded_checkout() || empty( $fields['billing'] ) ) {
+	if ( ! aip_reii_has_service_checkout_context() || empty( $fields['billing'] ) ) {
 		return $fields;
 	}
 	$email = isset( $fields['billing']['billing_email'] ) ? $fields['billing']['billing_email'] : array();
@@ -170,6 +191,28 @@ function aip_reii_embedded_checkout_fields( $fields ) {
 	$fields['billing'] = array( 'billing_email' => $email );
 	unset( $fields['shipping'], $fields['order'] );
 	return $fields;
+}
+
+function aip_reii_embedded_billing_fields( $fields ) {
+	if ( ! aip_reii_has_service_checkout_context() ) {
+		return $fields;
+	}
+	foreach ( $fields as $key => $field ) {
+		$fields[ $key ]['required'] = false;
+	}
+	return $fields;
+}
+
+function aip_reii_remove_service_address_errors( $data, $errors ) {
+	if ( ! aip_reii_has_service_checkout_context() || ! is_wp_error( $errors ) ) {
+		return;
+	}
+	$address_fields = '(first_name|last_name|company|country|address_1|address_2|city|state|postcode|phone)';
+	foreach ( $errors->get_error_codes() as $code ) {
+		if ( preg_match( '/^billing_' . $address_fields . '(_required)?$/', (string) $code ) ) {
+			$errors->remove( $code );
+		}
+	}
 }
 
 function aip_reii_embedded_checkout_compat_styles() {
@@ -186,7 +229,9 @@ function aip_reii_embedded_checkout_compat_styles() {
 
 add_filter( 'body_class', 'aip_reii_embedded_body_class', 999 );
 add_filter( 'woocommerce_default_address_fields', 'aip_reii_embedded_default_fields', 999 );
+add_filter( 'woocommerce_billing_fields', 'aip_reii_embedded_billing_fields', 999 );
 add_filter( 'woocommerce_checkout_fields', 'aip_reii_embedded_checkout_fields', 999 );
+add_action( 'woocommerce_after_checkout_validation', 'aip_reii_remove_service_address_errors', 999, 2 );
 add_action( 'wp_enqueue_scripts', 'aip_reii_embedded_checkout_compat_styles', 999 );
 }
 
@@ -212,7 +257,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.36';
+	const VERSION     = '0.5.37';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
