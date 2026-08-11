@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.35
+ * Version: 0.5.36
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -133,6 +133,63 @@ function aip_reii_checkout_fallback_bridge() {
 add_action( 'wp_enqueue_scripts', 'aip_reii_checkout_fallback_bridge' );
 }
 
+// Keep the embedded digital checkout outside the commerce class as well. Some
+// migrated hosts preload an older copy of the class before this plugin, but the
+// current popup must still get a compact, address-free Stripe checkout.
+if ( ! function_exists( 'aip_reii_is_embedded_checkout' ) ) {
+function aip_reii_is_embedded_checkout() {
+	return function_exists( 'is_checkout' ) && is_checkout() && isset( $_GET['aip_embedded'] );
+}
+
+function aip_reii_embedded_body_class( $classes ) {
+	if ( aip_reii_is_embedded_checkout() ) {
+		$classes[] = 'aip-embedded-checkout';
+		show_admin_bar( false );
+	}
+	return $classes;
+}
+
+function aip_reii_embedded_default_fields( $fields ) {
+	if ( ! aip_reii_is_embedded_checkout() ) {
+		return $fields;
+	}
+	foreach ( $fields as $key => $field ) {
+		$fields[ $key ]['required'] = false;
+	}
+	return $fields;
+}
+
+function aip_reii_embedded_checkout_fields( $fields ) {
+	if ( ! aip_reii_is_embedded_checkout() || empty( $fields['billing'] ) ) {
+		return $fields;
+	}
+	$email = isset( $fields['billing']['billing_email'] ) ? $fields['billing']['billing_email'] : array();
+	$email['type']     = 'hidden';
+	$email['required'] = false;
+	$email['label']    = '';
+	$fields['billing'] = array( 'billing_email' => $email );
+	unset( $fields['shipping'], $fields['order'] );
+	return $fields;
+}
+
+function aip_reii_embedded_checkout_compat_styles() {
+	if ( ! aip_reii_is_embedded_checkout() ) {
+		return;
+	}
+	$css = '
+	body.aip-embedded-checkout #wpadminbar,body.aip-embedded-checkout #masthead,body.aip-embedded-checkout #colophon,body.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.aip-embedded-checkout .main-container,body.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.aip-embedded-checkout .woocommerce-billing-fields,body.aip-embedded-checkout .woocommerce-shipping-fields,body.aip-embedded-checkout .woocommerce-additional-fields,body.aip-embedded-checkout #customer_details,body.aip-embedded-checkout #order_review_heading{display:none!important}body.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.aip-embedded-checkout form.checkout.woocommerce-checkout,body.aip-embedded-checkout #order_review,body.aip-embedded-checkout #payment{display:contents!important}body.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.aip-embedded-checkout button,body.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
+	';
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.36' );
+	wp_enqueue_style( 'aip-reii-embedded-compat' );
+	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
+}
+
+add_filter( 'body_class', 'aip_reii_embedded_body_class', 999 );
+add_filter( 'woocommerce_default_address_fields', 'aip_reii_embedded_default_fields', 999 );
+add_filter( 'woocommerce_checkout_fields', 'aip_reii_embedded_checkout_fields', 999 );
+add_action( 'wp_enqueue_scripts', 'aip_reii_embedded_checkout_compat_styles', 999 );
+}
+
 // Register the order API independently from the plugin class bootstrap. A
 // legacy duplicate can define the class before this file is loaded, but it must
 // never be able to suppress the REST namespace used by Order Studio.
@@ -155,7 +212,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.35';
+	const VERSION     = '0.5.36';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
