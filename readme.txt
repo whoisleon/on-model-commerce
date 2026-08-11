@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.29
+Stable tag: 0.5.30
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.30 =
+* Animates the REii wordmark into “REIMAGINE INFLUENCE” on hover and keyboard focus, with responsive and reduced-motion behavior.
 
 = 0.5.29 =
 * Rebrands the customer journey around REii, the Reimagined Influencer, with explicit AI influencer and UGC language across ordering, email, checkout, and delivery.
