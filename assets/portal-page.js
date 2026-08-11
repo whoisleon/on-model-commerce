@@ -32,7 +32,6 @@
       function clearFormFiles(){
         var forms=portal.querySelectorAll('form.wpcf7-form, form');
         forms.forEach(function(form){
-          try{form.reset();}catch(e){}
           form.classList.remove('submitting','sent','failed','invalid','spam');
           form.setAttribute('data-status','init');
           var submitBtn=form.querySelector('input[type="submit"], button[type="submit"]');
@@ -52,7 +51,6 @@
       }
       portal.addEventListener('reset',clearFormFiles);
       document.addEventListener('wpcf7reset',function(e){if(!e.target||e.target.closest('.aip-portal')===portal||e.target===portal){clearFormFiles();}});
-      document.addEventListener('wpcf7mailsent',function(e){if(!e.target||e.target.closest('.aip-portal')===portal||e.target===portal){clearFormFiles();}});
     }
     }
     function sync(){
