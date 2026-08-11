@@ -270,4 +270,13 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){initPortal();initOfferFromUrl();});else{initPortal();initOfferFromUrl();}
   document.addEventListener('wpcf7init',initPortal);
   window.addEventListener('load',initPortal);
+
+  document.addEventListener('wpcf7mailsent',function(event){
+    var portal=event.target&&event.target.closest('.aip-portal');
+    if(!portal)return;
+    window.setTimeout(function(){
+      if(document.querySelector('.aip-checkout-drawer'))return;
+      window.location.assign(new URL('/checkout/',window.location.origin).href);
+    },100);
+  });
 })();
