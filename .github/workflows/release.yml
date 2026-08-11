@@ -39,4 +39,4 @@ jobs:
           gh release create "${GITHUB_REF_NAME}"
           on-model-commerce.zip
           --generate-notes
-          --title "Style by REii Commerce ${GITHUB_REF_NAME}"
+          --title "REii Commerce ${GITHUB_REF_NAME}"

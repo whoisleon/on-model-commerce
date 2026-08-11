@@ -1,8 +1,8 @@
-=== Style by REii Commerce ===
+=== REii Commerce ===
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.28
+Stable tag: 0.5.29
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.29 =
+* Rebrands the customer journey around REii, the Reimagined Influencer, with explicit AI influencer and UGC language across ordering, email, checkout, and delivery.
 
 = 0.5.28 =
 * Packages the Style by REii landing-page CSS and JavaScript so the public WordPress page can load the rebrand from the installed plugin.
