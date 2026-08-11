@@ -30,26 +30,12 @@
       addBtn.addEventListener('click',openPicker);
       updatePreview();
       function clearFormFiles(){
-        var forms=portal.querySelectorAll('form.wpcf7-form, form');
-        forms.forEach(function(form){
-          form.classList.remove('submitting','sent','failed','invalid','spam');
-          form.setAttribute('data-status','init');
-          var submitBtn=form.querySelector('input[type="submit"], button[type="submit"]');
-          if(submitBtn)submitBtn.disabled=false;
-        });
         fileInputs.forEach(function(input){
           input.value='';
           try{input.files=(new DataTransfer()).files;}catch(e){}
         });
-        var refInput=portal.querySelector('input[name="product-reference"]');
-        if(refInput)refInput.value='';
-        var emailInput=portal.querySelector('input[name="your-email"]');
-        if(emailInput)emailInput.value='';
-        var notesInput=portal.querySelector('textarea[name="your-message"]');
-        if(notesInput)notesInput.value='';
         updatePreview();
       }
-      portal.addEventListener('reset',clearFormFiles);
       document.addEventListener('wpcf7reset',function(e){if(!e.target||e.target.closest('.aip-portal')===portal||e.target===portal){clearFormFiles();}});
     }
     }
@@ -66,9 +52,6 @@
     portal.addEventListener('change',function(event){if(event.target.name==='source-method')sync();});
     portal.addEventListener('submit',function(event){
       var form=event.target;
-      if(form&&form.tagName==='FORM'){
-        form.setAttribute('action','javascript:void(0);');
-      }
       var selected=portal.querySelector('input[name="source-method"]:checked');
       var upload=selected?selected.value==='Upload product files':false;
       var reference=portal.querySelector('input[name="product-reference"]');
