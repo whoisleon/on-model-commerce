@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.32
+ * Version: 0.5.33
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -114,6 +114,25 @@ add_action( 'admin_post_aip_github_update', 'aip_github_updater_run' );
 add_action( 'admin_notices', 'aip_github_updater_notice' );
 }
 
+// Keep the success-to-checkout handoff outside the commerce class. A legacy
+// preloaded class can suppress the current class body, but it must not strand a
+// customer after Contact Form 7 accepts the intake.
+if ( ! function_exists( 'aip_reii_checkout_fallback_bridge' ) ) {
+function aip_reii_checkout_fallback_bridge() {
+	if ( ! is_page( array( 'style-by-reii', 'on-model-content' ) ) || ! function_exists( 'wc_get_checkout_url' ) ) {
+		return;
+	}
+
+	wp_enqueue_script( 'jquery' );
+	$config = array(
+		'checkoutUrl' => wc_get_checkout_url(),
+	);
+	$script = "(function(){window.aipFallbackCheckoutConfig=" . wp_json_encode( $config ) . ";document.addEventListener('wpcf7mailsent',function(event){var portal=event.target&&event.target.closest('.aip-portal');if(!portal)return;window.setTimeout(function(){if(document.querySelector('.aip-checkout-drawer'))return;window.location.assign(window.aipFallbackCheckoutConfig.checkoutUrl);},50);});})();";
+	wp_add_inline_script( 'jquery', $script, 'after' );
+}
+add_action( 'wp_enqueue_scripts', 'aip_reii_checkout_fallback_bridge' );
+}
+
 // Register the order API independently from the plugin class bootstrap. A
 // legacy duplicate can define the class before this file is loaded, but it must
 // never be able to suppress the REST namespace used by Order Studio.
@@ -136,7 +155,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.32';
+	const VERSION     = '0.5.33';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
