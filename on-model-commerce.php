@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.38
+ * Version: 0.5.39
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -127,7 +127,7 @@ function aip_reii_checkout_fallback_bridge() {
 	$config = array(
 		'checkoutUrl' => wc_get_checkout_url(),
 	);
-	$script = "(function(){window.aipFallbackCheckoutConfig=" . wp_json_encode( $config ) . ";document.addEventListener('wpcf7mailsent',function(event){var portal=event.target&&event.target.closest('.aip-portal');if(!portal)return;window.setTimeout(function(){if(document.querySelector('.aip-checkout-drawer'))return;window.location.assign(window.aipFallbackCheckoutConfig.checkoutUrl);},50);});})();";
+	$script = "(function(){window.aipFallbackCheckoutConfig=" . wp_json_encode( $config ) . ";document.addEventListener('wpcf7mailsent',function(event){var portal=event.target&&event.target.closest('.aip-portal');if(!portal)return;window.setTimeout(function(){if(document.querySelector('.aip-payment-modal,.aip-checkout-drawer'))return;window.location.assign(window.aipFallbackCheckoutConfig.checkoutUrl);},50);});})();";
 	wp_add_inline_script( 'jquery', $script, 'after' );
 }
 add_action( 'wp_enqueue_scripts', 'aip_reii_checkout_fallback_bridge' );
@@ -313,7 +313,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.38';
+	const VERSION     = '0.5.39';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
