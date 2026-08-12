@@ -203,8 +203,8 @@
     if(modal){
       var title=modal.querySelector('.aip-form-wrap h3');
       var intro=modal.querySelector('.aip-form-wrap>p');
-      if(title)title.textContent=selected?'Add '+selected.label.toLowerCase():'Create your REii feature';
-      if(intro)intro.textContent=selected?'Your $20 REii feature plus '+selected.label.toLowerCase()+' (+$'+selected.price+'). Add your product details to continue.':'Add an Amazon link or upload your product files. Your $20 launch feature includes one 10-second, AI-created influencer UGC video.';
+      if(title)title.textContent=selected?'Add '+selected.label.toLowerCase():'Create your REii video';
+      if(intro)intro.textContent=selected?'Your $20 REii video plus '+selected.label.toLowerCase()+' (+$'+selected.price+'). Add your product details to continue.':'Add an Amazon link or upload your product files. Your $20 order includes one 10-second, AI-created influencer UGC video.';
     }
   }
 

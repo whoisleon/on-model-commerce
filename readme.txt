@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.42
+Stable tag: 0.5.45
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,18 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.45 =
+* Replaces awkward “REii feature” wording with natural video, order, and project language throughout checkout and confirmation.
+* Renames the purchasable item to “REii AI-Generated UGC Video,” including previously placed orders when displayed.
+
+= 0.5.44 =
+* Replaces the stale $50 legacy service record with the REii AI Influencer UGC Feature at the intended $20 launch price.
+* Enforces direct-purchase pricing at checkout so legacy plugin copies cannot restore the old price.
+
+= 0.5.43 =
+* Makes the embedded payment screen a reliable one-product direct purchase, automatically loading the $20 REii feature instead of ever showing an empty cart.
+* Captures the REii intake through a legacy-safe fallback when an older plugin class is preloaded by the host.
 
 = 0.5.42 =
 * Gives the animated REiMAGiNE letter inserts additional width for smoother final spacing.
