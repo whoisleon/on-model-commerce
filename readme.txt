@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.37
+Stable tag: 0.5.38
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,10 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.38 =
+* Supplies the hidden billing country required by Stripe while keeping the digital-service checkout address-free.
+* Prevents the animated REii tagline from clipping descenders.
 
 = 0.5.37 =
 * Hides the Stripe preparation indicator after load and prevents hidden WooCommerce address fields from blocking digital-service orders.

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.37
+ * Version: 0.5.38
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -162,6 +162,30 @@ function aip_reii_is_embedded_checkout() {
 	return function_exists( 'is_checkout' ) && is_checkout() && aip_reii_has_service_checkout_context();
 }
 
+function aip_reii_default_billing_country() {
+	$country = 'US';
+	if ( function_exists( 'WC' ) && WC()->countries ) {
+		$base_country = strtoupper( (string) WC()->countries->get_base_country() );
+		$countries    = WC()->countries->get_countries();
+		if ( isset( $countries[ $base_country ] ) ) {
+			$country = $base_country;
+		}
+	}
+	return $country;
+}
+
+function aip_reii_seed_checkout_country() {
+	if ( ! aip_reii_has_service_checkout_context() || ! function_exists( 'WC' ) || ! WC()->customer ) {
+		return;
+	}
+	if ( ! WC()->customer->get_billing_country( 'edit' ) ) {
+		WC()->customer->set_billing_country( aip_reii_default_billing_country() );
+	}
+	if ( ! WC()->customer->get_shipping_country( 'edit' ) ) {
+		WC()->customer->set_shipping_country( aip_reii_default_billing_country() );
+	}
+}
+
 function aip_reii_embedded_body_class( $classes ) {
 	if ( aip_reii_is_embedded_checkout() ) {
 		$classes[] = 'aip-embedded-checkout';
@@ -184,13 +208,41 @@ function aip_reii_embedded_checkout_fields( $fields ) {
 	if ( ! aip_reii_has_service_checkout_context() || empty( $fields['billing'] ) ) {
 		return $fields;
 	}
-	$email = isset( $fields['billing']['billing_email'] ) ? $fields['billing']['billing_email'] : array();
+	$email   = isset( $fields['billing']['billing_email'] ) ? $fields['billing']['billing_email'] : array();
+	$country = isset( $fields['billing']['billing_country'] ) ? $fields['billing']['billing_country'] : array();
 	$email['type']     = 'hidden';
 	$email['required'] = false;
 	$email['label']    = '';
-	$fields['billing'] = array( 'billing_email' => $email );
+	$country['type']     = 'hidden';
+	$country['required'] = false;
+	$country['label']    = '';
+	$country['default']  = aip_reii_default_billing_country();
+	$fields['billing'] = array(
+		'billing_email'   => $email,
+		'billing_country' => $country,
+	);
 	unset( $fields['shipping'], $fields['order'] );
 	return $fields;
+}
+
+function aip_reii_embedded_checkout_value( $value, $input ) {
+	if ( aip_reii_has_service_checkout_context() && 'billing_country' === $input && empty( $value ) ) {
+		return aip_reii_default_billing_country();
+	}
+	return $value;
+}
+
+function aip_reii_embedded_customer_country( $value ) {
+	if ( aip_reii_has_service_checkout_context() && empty( $value ) ) {
+		return aip_reii_default_billing_country();
+	}
+	return $value;
+}
+
+function aip_reii_store_api_billing_country( $order, $request ) {
+	if ( aip_reii_has_service_checkout_context() && is_a( $order, 'WC_Order' ) && ! $order->get_billing_country() ) {
+		$order->set_billing_country( aip_reii_default_billing_country() );
+	}
 }
 
 function aip_reii_embedded_billing_fields( $fields ) {
@@ -228,10 +280,14 @@ function aip_reii_embedded_checkout_compat_styles() {
 }
 
 add_filter( 'body_class', 'aip_reii_embedded_body_class', 999 );
+add_action( 'wp', 'aip_reii_seed_checkout_country', 1 );
 add_filter( 'woocommerce_default_address_fields', 'aip_reii_embedded_default_fields', 999 );
 add_filter( 'woocommerce_billing_fields', 'aip_reii_embedded_billing_fields', 999 );
 add_filter( 'woocommerce_checkout_fields', 'aip_reii_embedded_checkout_fields', 999 );
+add_filter( 'woocommerce_checkout_get_value', 'aip_reii_embedded_checkout_value', 999, 2 );
+add_filter( 'woocommerce_customer_get_billing_country', 'aip_reii_embedded_customer_country', 999 );
 add_action( 'woocommerce_after_checkout_validation', 'aip_reii_remove_service_address_errors', 999, 2 );
+add_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_store_api_billing_country', 999, 2 );
 add_action( 'wp_enqueue_scripts', 'aip_reii_embedded_checkout_compat_styles', 999 );
 }
 
@@ -257,7 +313,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.37';
+	const VERSION     = '0.5.38';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '20';
@@ -1266,12 +1322,20 @@ final class AIP_On_Model_Commerce_GitHub {
 			return $fields;
 		}
 
-		$email = isset( $fields['billing']['billing_email'] ) ? $fields['billing']['billing_email'] : array();
+		$email   = isset( $fields['billing']['billing_email'] ) ? $fields['billing']['billing_email'] : array();
+		$country = isset( $fields['billing']['billing_country'] ) ? $fields['billing']['billing_country'] : array();
 		$email['type']     = 'hidden';
 		$email['required'] = false;
 		$email['label']    = '';
+		$country['type']     = 'hidden';
+		$country['required'] = false;
+		$country['label']    = '';
+		$country['default']  = aip_reii_default_billing_country();
 
-		$fields['billing'] = array( 'billing_email' => $email );
+		$fields['billing'] = array(
+			'billing_email'   => $email,
+			'billing_country' => $country,
+		);
 
 		return $fields;
 	}
@@ -1393,6 +1457,9 @@ final class AIP_On_Model_Commerce_GitHub {
 			 * without saving it back to a logged-in WordPress user account. */
 			if ( $email && WC()->customer ) {
 				WC()->customer->set_billing_email( $email );
+				if ( ! WC()->customer->get_billing_country( 'edit' ) ) {
+					WC()->customer->set_billing_country( aip_reii_default_billing_country() );
+				}
 			}
 			WC()->session->set_customer_session_cookie( true );
 		}
@@ -1406,7 +1473,13 @@ final class AIP_On_Model_Commerce_GitHub {
 	}
 
 	public static function prefill_checkout_value( $value, $input ) {
-		if ( 'billing_email' !== $input || ! WC()->session ) {
+		if ( ! WC()->session ) {
+			return $value;
+		}
+		if ( 'billing_country' === $input && empty( $value ) ) {
+			return aip_reii_default_billing_country();
+		}
+		if ( 'billing_email' !== $input ) {
 			return $value;
 		}
 		$intake = WC()->session->get( 'aip_intake' );
