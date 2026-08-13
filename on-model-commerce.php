@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.45
+ * Version: 0.5.46
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -240,8 +240,19 @@ function aip_reii_embedded_customer_country( $value ) {
 }
 
 function aip_reii_store_api_billing_country( $order, $request ) {
-	if ( aip_reii_has_service_checkout_context() && is_a( $order, 'WC_Order' ) && ! $order->get_billing_country() ) {
+	if ( ! aip_reii_has_service_checkout_context() || ! is_a( $order, 'WC_Order' ) ) {
+		return;
+	}
+	if ( ! $order->get_billing_country() ) {
 		$order->set_billing_country( aip_reii_default_billing_country() );
+	}
+	$intake = function_exists( 'WC' ) && WC()->session ? WC()->session->get( 'aip_intake' ) : array();
+	$email  = ! empty( $intake['email'] ) ? sanitize_email( $intake['email'] ) : '';
+	if ( $email && is_email( $email ) ) {
+		// The email entered in the current REii intake must override any stale
+		// billing email restored by WooCommerce from an earlier checkout.
+		$order->set_billing_email( $email );
+		$order->update_meta_data( '_aip_intake_email', $email );
 	}
 }
 
@@ -318,8 +329,8 @@ function aip_reii_ensure_direct_purchase_product() {
 		'slug'               => 'style-by-reii-shoppable-video-feature',
 		'status'             => 'publish',
 		'catalog_visibility' => 'hidden',
-		'regular_price'      => '20',
-		'price'              => '20',
+		'regular_price'      => '10',
+		'price'              => '10',
 	);
 	foreach ( $fields as $field => $value ) {
 		$getter = 'get_' . $field;
@@ -506,7 +517,7 @@ function aip_reii_price_direct_purchase( $cart ) {
 		}
 		$addon = ! empty( $cart_item['aip_intake']['addon'] ) ? sanitize_key( $cart_item['aip_intake']['addon'] ) : '';
 		$extra = isset( $addon_prices[ $addon ] ) ? $addon_prices[ $addon ] : 0;
-		$product->set_price( 20 + $extra );
+		$product->set_price( 10 + $extra );
 	}
 }
 
@@ -538,10 +549,10 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.45';
+	const VERSION     = '0.5.46';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
-	const BASE_PRICE  = '20';
+	const BASE_PRICE  = '10';
 	const GITHUB_REPOSITORY = 'whoisleon/on-model-commerce';
 	const UPDATE_CACHE_KEY  = 'aip_on_model_github_release';
 
@@ -935,6 +946,13 @@ final class AIP_On_Model_Commerce_GitHub {
 		$deliverables       = $order->get_meta( '_aip_deliverables' );
 		$deliverables       = is_array( $deliverables ) ? $deliverables : array();
 		$client_submitted_at = isset( $deliverables['delivered_at'] ) ? $deliverables['delivered_at'] : null;
+		$has_generated_media = ! empty( $deliverables['images'] ) || ! empty( $deliverables['videos'] );
+		$workflow_status     = $client_submitted_at
+			? 'completed'
+			: ( $has_generated_media ? 'content-review' : $order->get_status() );
+		$workflow_label      = 'content-review' === $workflow_status
+			? 'Ready for review'
+			: wc_get_order_status_name( $workflow_status );
 		$download_stats      = $order->get_meta( '_aip_download_stats' );
 		$download_stats      = is_array( $download_stats ) ? $download_stats : array();
 		if ( $client_submitted_at && false === strpos( $client_submitted_at, 'T' ) ) {
@@ -945,6 +963,8 @@ final class AIP_On_Model_Commerce_GitHub {
 			'number'        => $order->get_order_number(),
 			'status'        => $order->get_status(),
 			'status_label'  => wc_get_order_status_name( $order->get_status() ),
+			'workflow_status' => $workflow_status,
+			'workflow_status_label' => $workflow_label,
 			'created_at'    => $created_at,
 			'submitted_at'  => $submitted_at ?: $created_at,
 			'client_submitted_at' => $client_submitted_at,
@@ -968,8 +988,11 @@ final class AIP_On_Model_Commerce_GitHub {
 	}
 
 	public static function api_orders( $request ) {
-		$raw_status = sanitize_key( $request->get_param( 'status' ) ?: 'processing' );
-		if ( 'processing' === $raw_status ) {
+		$raw_status = sanitize_key( $request->get_param( 'status' ) ?: 'all' );
+		$filter_review = 'content-review' === $raw_status;
+		if ( 'all' === $raw_status || $filter_review ) {
+			$status_query = array_keys( wc_get_order_statuses() );
+		} elseif ( 'processing' === $raw_status ) {
 			$status_query = array( 'processing', 'content-queued', 'content-creating' );
 		} else {
 			$status_query = $raw_status;
@@ -984,11 +1007,22 @@ final class AIP_On_Model_Commerce_GitHub {
 				'order'    => 'DESC',
 			)
 		);
+		$orders = array_map( array( __CLASS__, 'api_order_object' ), $result->orders );
+		if ( $filter_review ) {
+			$orders = array_values(
+				array_filter(
+					$orders,
+					function( $order ) {
+						return isset( $order['workflow_status'] ) && 'content-review' === $order['workflow_status'];
+					}
+				)
+			);
+		}
 		return rest_ensure_response(
 			array(
-				'orders' => array_map( array( __CLASS__, 'api_order_object' ), $result->orders ),
-				'total'  => (int) $result->total,
-				'pages'  => (int) $result->max_num_pages,
+				'orders' => $orders,
+				'total'  => $filter_review ? count( $orders ) : (int) $result->total,
+				'pages'  => $filter_review ? ( empty( $orders ) ? 0 : 1 ) : (int) $result->max_num_pages,
 			)
 		);
 	}
@@ -1966,10 +2000,13 @@ final class AIP_On_Model_Commerce_GitHub {
 		if ( empty( $intake ) ) {
 			return;
 		}
-		if ( ! $order->get_billing_email() && ! empty( $intake['email'] ) ) {
-			$order->set_billing_email( $intake['email'] );
+		$email = ! empty( $intake['email'] ) ? sanitize_email( $intake['email'] ) : '';
+		if ( $email && is_email( $email ) ) {
+			// Never let a billing email remembered from a previous WooCommerce
+			// session replace the address submitted for this REii order.
+			$order->set_billing_email( $email );
 		}
-		$order->update_meta_data( '_aip_intake_email', isset( $intake['email'] ) ? $intake['email'] : '' );
+		$order->update_meta_data( '_aip_intake_email', $email );
 		$order->update_meta_data( '_aip_intake_submitted_at', isset( $intake['submitted_at'] ) ? $intake['submitted_at'] : current_time( DATE_ATOM ) );
 		if ( ! empty( $intake['files'] ) && is_array( $intake['files'] ) ) {
 			$order->update_meta_data( '_aip_uploaded_files', array_slice( $intake['files'], 0, 4 ) );

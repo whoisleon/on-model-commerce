@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.45
+Stable tag: 0.5.46
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -13,16 +13,19 @@ Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plu
 
 == Changelog ==
 
+= 0.5.46 =
+* Keep the email submitted in the current REii intake authoritative when WooCommerce has an older billing email saved.
+
 = 0.5.45 =
 * Replaces awkward “REii feature” wording with natural video, order, and project language throughout checkout and confirmation.
 * Renames the purchasable item to “REii AI-Generated UGC Video,” including previously placed orders when displayed.
 
 = 0.5.44 =
-* Replaces the stale $50 legacy service record with the REii AI Influencer UGC Feature at the intended $20 launch price.
+* Replaces the stale $50 legacy service record with the REii AI Influencer UGC Feature at the intended $10 launch price.
 * Enforces direct-purchase pricing at checkout so legacy plugin copies cannot restore the old price.
 
 = 0.5.43 =
-* Makes the embedded payment screen a reliable one-product direct purchase, automatically loading the $20 REii feature instead of ever showing an empty cart.
+* Makes the embedded payment screen a reliable one-product direct purchase, automatically loading the $10 REii video instead of ever showing an empty cart.
 * Captures the REii intake through a legacy-safe fallback when an older plugin class is preloaded by the host.
 
 = 0.5.42 =
@@ -141,7 +144,7 @@ Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plu
 
 = 0.5.6 =
 * Rebrands the customer offer as the Style by REii Shoppable Video Feature.
-* Sets the launch feature to $20 and supports priced feature add-ons through checkout.
+* Sets the launch video to $10 and supports priced video add-ons through checkout.
 * Adds a storefront-focused homepage offer, included-benefits strip, and customization menu.
 * Adds matching add-on offers to the private shoppable-video delivery library.
 
