@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.52
+ * Version: 0.5.53
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -407,6 +407,9 @@ function aip_reii_checkout_theme_css_v0551() {
 	body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-thumbs img{border-color:#ddd3f4!important;border-radius:11px!important;height:78px!important;width:64px!important}
 	.aip-checkout-panel{background:var(--aip-paper,#f7f5f1);border-radius:28px 0 0 28px;box-shadow:-28px 0 90px rgba(12,8,17,.28);overflow:hidden}.aip-checkout-panel header{background:#19161d;border:0;color:#fff;height:88px}.aip-checkout-panel header small{color:#a994f4}.aip-checkout-panel header strong{color:#fff;font-family:Georgia,"Times New Roman",serif}.aip-checkout-close{background:rgba(255,255,255,.1);color:#fff}.aip-checkout-panel iframe{background:#f7f5f1;height:calc(100% - 88px)}.aip-checkout-loading span{border-top-color:#5d32ea}
 	@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:18px 14px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro{border-radius:18px;padding:22px 20px}body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro h1{font-size:25px}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element,body.woocommerce-checkout.aip-embedded-checkout .payment_methods,body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{border-radius:16px!important}body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-hero{border-radius:22px;padding:32px 22px 27px}body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-hero h1{font-size:34px}body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-next{grid-template-columns:1fr}body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-next li,body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-next li:first-child,body.woocommerce-checkout.aip-checkout-complete .aip-confirmation-next li:last-child{border-radius:10px;min-height:0}body.woocommerce-checkout.aip-checkout-complete .woocommerce-order-overview{grid-template-columns:1fr!important}body.woocommerce-checkout.aip-checkout-complete .woocommerce-order-overview li{border-right:0!important}.aip-checkout-panel{border-radius:0;max-width:none;width:100%}}
+	body.woocommerce-checkout.aip-embedded-checkout :where(p,small,label,span,strong,em,b,a,button,input,select,textarea,option,th,td,li,dt,dd,h4,h5,h6){font-size:16px!important;line-height:1.5!important}
+	body.woocommerce-checkout.aip-embedded-checkout .shop_table .order-total .amount{font-size:18px!important}
+	body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-upload-file{font-size:20px!important}
 	@media(prefers-reduced-motion:reduce){body.woocommerce-checkout.aip-embedded-checkout #place_order,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-place-order-button{transition:none!important}}
 	';
 }
@@ -419,7 +422,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.52' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.53' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -1047,6 +1050,74 @@ function aip_register_order_api_routes() {
 add_action( 'rest_api_init', 'aip_register_order_api_routes' );
 }
 
+// The intake form only prepares checkout. The paid WooCommerce order is the
+// customer-facing confirmation, so never send a second pre-payment receipt.
+if ( ! function_exists( 'aip_reii_skip_intake_autoresponder_v0553' ) ) {
+function aip_reii_skip_intake_autoresponder_v0553( $skip_mail, $contact_form ) {
+	if ( is_object( $contact_form ) && is_callable( array( $contact_form, 'title' ) ) && 'On-Model Content Order Form' === $contact_form->title() ) {
+		return true;
+	}
+	return $skip_mail;
+}
+add_filter( 'wpcf7_skip_mail', 'aip_reii_skip_intake_autoresponder_v0553', PHP_INT_MAX, 2 );
+}
+
+// A paid REii order sends the processing receipt, then the completed delivery
+// email. Suppress WooCommerce's optional on-hold stage message for this service
+// without affecting refunds, account/security mail, other products, or admin
+// order notifications.
+if ( ! function_exists( 'aip_reii_disable_on_hold_customer_email_v0553' ) ) {
+function aip_reii_disable_on_hold_customer_email_v0553( $enabled, $order ) {
+	return aip_reii_is_reii_order_v0551( $order ) ? false : $enabled;
+}
+add_filter( 'woocommerce_email_enabled_customer_on_hold_order', 'aip_reii_disable_on_hold_customer_email_v0553', PHP_INT_MAX, 2 );
+}
+
+// Keep client delivery available even when WordPress.com preloads the plugin
+// class from an orphaned directory. In that state the class guard below must
+// avoid a fatal redeclaration, but returning before ::init() previously left
+// the completed-order email, passwordless library, and admin delivery controls
+// unregistered. WordPress de-duplicates identical callbacks, so this is also
+// safe when the class is defined normally by this file.
+if ( ! function_exists( 'aip_reii_register_delivery_surface_v0553' ) ) {
+function aip_reii_register_delivery_surface_v0553() {
+	$class = 'AIP_On_Model_Commerce_GitHub';
+	if ( ! class_exists( $class, false ) ) {
+		return;
+	}
+
+	$actions = array(
+		array( 'woocommerce_email_after_order_table', 'email_delivery_links', 20, 4 ),
+		array( 'woocommerce_email_after_order_table', 'email_order_confirmation_message', 15, 4 ),
+		array( 'template_redirect', 'passwordless_delivery_request', 1, 1 ),
+		array( 'add_meta_boxes', 'add_admin_order_meta_boxes', 10, 2 ),
+		array( 'admin_enqueue_scripts', 'admin_order_assets', 10, 1 ),
+		array( 'wp_ajax_aip_admin_update_order_status', 'ajax_update_order_status', 10, 1 ),
+		array( 'wp_ajax_aip_admin_deliver_order', 'ajax_deliver_order', 10, 1 ),
+	);
+	foreach ( $actions as $hook ) {
+		if ( is_callable( array( $class, $hook[1] ) ) ) {
+			add_action( $hook[0], array( $class, $hook[1] ), $hook[2], $hook[3] );
+		}
+	}
+
+	$filters = array(
+		array( 'woocommerce_email_subject_customer_processing_order', 'custom_processing_email_subject', 10, 2 ),
+		array( 'woocommerce_email_heading_customer_processing_order', 'custom_processing_email_heading', 10, 2 ),
+		array( 'woocommerce_email_subject_customer_completed_order', 'custom_completed_email_subject', 10, 2 ),
+		array( 'woocommerce_email_heading_customer_completed_order', 'custom_completed_email_heading', 10, 2 ),
+		array( 'wpcf7_skip_mail', 'skip_intake_email', PHP_INT_MAX, 2 ),
+		array( 'gettext', 'customize_email_gettext', 20, 3 ),
+	);
+	foreach ( $filters as $hook ) {
+		if ( is_callable( array( $class, $hook[1] ) ) ) {
+			add_filter( $hook[0], array( $class, $hook[1] ), $hook[2], $hook[3] );
+		}
+	}
+}
+add_action( 'plugins_loaded', 'aip_reii_register_delivery_surface_v0553', PHP_INT_MAX );
+}
+
 // The GitHub-enabled build intentionally uses a new permanent directory to
 // escape legacy WordPress.com folders that cannot be overwritten. If an older
 // copy is still active during the one-time migration, deactivate that file and
@@ -1057,7 +1128,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.52';
+	const VERSION     = '0.5.53';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
@@ -2421,7 +2492,11 @@ final class AIP_On_Model_Commerce_GitHub {
 
 	public static function add_item_thumbnail_to_confirmation( $item_name, $item, $is_visible ) {
 		$thumbs = array();
-		$order  = is_callable( array( $item, 'get_order' ) ) ? $item->get_order() : false;
+		$order_id = is_callable( array( $item, 'get_order_id' ) ) ? absint( $item->get_order_id() ) : 0;
+		$order  = $order_id && function_exists( 'wc_get_order' ) ? wc_get_order( $order_id ) : false;
+		if ( ! $order && is_callable( array( $item, 'get_order' ) ) ) {
+			$order = $item->get_order();
+		}
 		$product = is_callable( array( $item, 'get_product' ) ) ? $item->get_product() : false;
 		if ( $product && 'on-model-content-order' === $product->get_sku() ) {
 			$item_name = 'REii AI-Generated UGC Video';
@@ -2449,11 +2524,11 @@ final class AIP_On_Model_Commerce_GitHub {
 		}
 
 		if ( ! empty( $thumbs ) ) {
-			$thumb_html = '<div class="aip-confirmation-thumbs" style="display:flex; gap:8px; margin:10px 0 6px; align-items:center;">';
+			$thumb_html = '<div class="aip-confirmation-uploads" style="margin:12px 0 8px;"><strong style="display:block; font-size:11px; margin-bottom:7px;">Your uploaded product images</strong><div class="aip-confirmation-thumbs" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">';
 			foreach ( array_slice( $thumbs, 0, 4 ) as $t_url ) {
-				$thumb_html .= '<img src="' . esc_url( $t_url ) . '" alt="Product preview" style="width:60px; height:72px; object-fit:cover; border-radius:8px; border:1px solid #e2dafb; box-shadow:0 2px 8px rgba(0,0,0,0.06); background:#fff;" onerror="this.style.display=\'none\'">';
+				$thumb_html .= '<a href="' . esc_url( $t_url ) . '" target="_blank" rel="noopener" aria-label="Open uploaded product image"><img src="' . esc_url( $t_url ) . '" alt="Uploaded product image" style="width:60px; height:72px; object-fit:cover; border-radius:8px; border:1px solid #e2dafb; box-shadow:0 2px 8px rgba(0,0,0,0.06); background:#fff;" onerror="this.closest(\'a\').style.display=\'none\'"></a>';
 			}
-			$thumb_html .= '</div>';
+			$thumb_html .= '</div></div>';
 			return $item_name . $thumb_html;
 		}
 

@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.52
+Stable tag: 0.5.53
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,12 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.53 =
+* Keep completed-order delivery emails, private content-library links, and admin delivery controls registered when WordPress preloads the commerce class from a legacy plugin directory.
+* Reduce the customer email flow to the paid-order receipt and completed-delivery link by disabling the pre-checkout intake autoresponder and optional on-hold stage email.
+* Replace Contact Form 7's misleading sent-message confirmation with a clear reminder that payment is still required to place the order.
+* Enforce a 16px minimum font size throughout the product form, payment handoff, embedded checkout, and payment confirmation.
 
 = 0.5.52 =
 * Polish the fashion product callouts with larger imagery, tighter typography, accessible hover/focus motion, and scroll-drawn pointer lines.
