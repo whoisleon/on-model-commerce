@@ -142,6 +142,24 @@
     if(!portal)return;
     initProductSource(portal);
 
+    var productVisual=portal.querySelector('.aip-contact-visual');
+    if(productVisual){
+      var revealProductCallouts=function(){
+        productVisual.classList.add('is-product-callouts-visible');
+      };
+      if('IntersectionObserver' in window&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+        var productObserver=new IntersectionObserver(function(entries){
+          if(entries.some(function(entry){return entry.isIntersecting;})){
+            revealProductCallouts();
+            productObserver.disconnect();
+          }
+        },{threshold:.28});
+        productObserver.observe(productVisual);
+      }else{
+        revealProductCallouts();
+      }
+    }
+
     var lookToggle=portal.querySelector('.aip-look-toggle');
     var lookList=portal.querySelector('.aip-look-list');
     if(lookToggle){if(lookList){lookToggle.addEventListener('click',function(){var open=lookToggle.getAttribute('aria-expanded')==='true';lookToggle.setAttribute('aria-expanded',String(!open));lookList.hidden=open;});}}
