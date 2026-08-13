@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.48
+ * Version: 0.5.49
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -539,8 +539,8 @@ add_action( 'woocommerce_before_calculate_totals', 'aip_reii_price_direct_purcha
 // versioned fallback intentionally lives outside the legacy function and class
 // guards: an orphaned plugin copy can otherwise leave an earlier service item
 // in the cart and cause its email/reference to be reused for the next order.
-if ( ! function_exists( 'aip_reii_capture_current_intake_v0548' ) ) {
-function aip_reii_persist_current_file_v0548( $file ) {
+if ( ! function_exists( 'aip_reii_capture_current_intake_v0549' ) ) {
+function aip_reii_persist_current_file_v0549( $file ) {
 	if ( ! $file || ! is_readable( $file ) ) {
 		return null;
 	}
@@ -568,27 +568,39 @@ function aip_reii_persist_current_file_v0548( $file ) {
 	);
 }
 
-function aip_reii_current_intake_was_captured_v0548( $existing, $current, $file_names ) {
-	if ( ! is_array( $existing ) || empty( $existing['submitted_at'] ) ) {
-		return false;
-	}
-	$submitted_at = strtotime( (string) $existing['submitted_at'] );
-	$request_time = isset( $_SERVER['REQUEST_TIME'] ) ? absint( $_SERVER['REQUEST_TIME'] ) : time();
-	if ( ! $submitted_at || $submitted_at < $request_time - 1 ) {
-		return false;
-	}
-	foreach ( array( 'email', 'method', 'reference', 'notes', 'addon', 'source_order' ) as $key ) {
-		if ( (string) ( isset( $existing[ $key ] ) ? $existing[ $key ] : '' ) !== (string) ( isset( $current[ $key ] ) ? $current[ $key ] : '' ) ) {
-			return false;
+function aip_reii_scalar_text_v0549( $value ) {
+	while ( is_array( $value ) ) {
+		if ( empty( $value ) ) {
+			return '';
 		}
+		$value = reset( $value );
 	}
-	$existing_names = ! empty( $existing['file_names'] ) && is_array( $existing['file_names'] )
-		? array_values( array_unique( array_map( 'sanitize_file_name', $existing['file_names'] ) ) )
-		: array();
-	return $existing_names === $file_names;
+	return is_scalar( $value ) ? trim( (string) $value ) : '';
 }
 
-function aip_reii_capture_current_intake_v0548( $contact_form, &$abort, $submission ) {
+function aip_reii_posted_text_v0549( $submission, $posted_data, $field_name ) {
+	// Contact Form 7 represents selectable controls (including radio buttons)
+	// as arrays in get_posted_data(). sanitize_text_field() rejects arrays, so
+	// normalize to the first submitted value before sanitizing it.
+	if ( is_object( $submission ) && method_exists( $submission, 'get_posted_string' ) ) {
+		return aip_reii_scalar_text_v0549( $submission->get_posted_string( $field_name ) );
+	}
+	$value = isset( $posted_data[ $field_name ] ) ? $posted_data[ $field_name ] : '';
+	return aip_reii_scalar_text_v0549( $value );
+}
+
+function aip_reii_source_method_v0549( $submission, $posted_data ) {
+	$value = sanitize_text_field( aip_reii_posted_text_v0549( $submission, $posted_data, 'source-method' ) );
+	if ( 'upload' === $value || 'Upload product files' === $value ) {
+		return 'Upload product files';
+	}
+	if ( 'amazon' === $value || 'Amazon link / ASIN' === $value ) {
+		return 'Amazon link / ASIN';
+	}
+	return '';
+}
+
+function aip_reii_capture_current_intake_v0549( $contact_form, &$abort, $submission ) {
 	if ( ! is_object( $contact_form ) || 'On-Model Content Order Form' !== $contact_form->title() ) {
 		return;
 	}
@@ -607,53 +619,51 @@ function aip_reii_capture_current_intake_v0548( $contact_form, &$abort, $submiss
 
 	$data       = $submission->get_posted_data();
 	$uploaded   = $submission->uploaded_files();
+	$method     = aip_reii_source_method_v0549( $submission, $data );
 	$raw_files  = array();
-	$file_names = array();
-	foreach ( range( 1, 4 ) as $index ) {
+	foreach ( 'Upload product files' === $method ? range( 1, 4 ) : array() as $index ) {
 		$key = 'product-file-' . $index;
 		if ( empty( $uploaded[ $key ] ) ) {
 			continue;
 		}
 		$files = is_array( $uploaded[ $key ] ) ? $uploaded[ $key ] : array( $uploaded[ $key ] );
 		foreach ( $files as $file ) {
-			if ( $file ) {
-				$raw_files[]  = $file;
-				$file_names[] = sanitize_file_name( basename( $file ) );
+			if ( is_string( $file ) && is_file( $file ) && is_readable( $file ) ) {
+				$raw_files[] = $file;
 			}
 		}
 	}
-	$file_names = array_slice( array_values( array_unique( $file_names ) ), 0, 4 );
-
 	$allowed_addons = array( 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
 	$addon          = isset( $_POST['aip-addon'] ) ? sanitize_key( wp_unslash( $_POST['aip-addon'] ) ) : '';
 	$addon          = in_array( $addon, $allowed_addons, true ) ? $addon : '';
 	$current        = array(
-		'email'        => sanitize_email( isset( $data['your-email'] ) ? $data['your-email'] : '' ),
-		'method'       => sanitize_text_field( isset( $data['source-method'] ) ? $data['source-method'] : '' ),
-		'reference'    => sanitize_text_field( isset( $data['product-reference'] ) ? $data['product-reference'] : '' ),
-		'notes'        => sanitize_textarea_field( isset( $data['creative-notes'] ) ? $data['creative-notes'] : '' ),
+		'email'        => sanitize_email( aip_reii_posted_text_v0549( $submission, $data, 'your-email' ) ),
+		'method'       => $method,
+		'reference'    => 'Amazon link / ASIN' === $method ? sanitize_text_field( aip_reii_posted_text_v0549( $submission, $data, 'product-reference' ) ) : '',
+		'notes'        => sanitize_textarea_field( aip_reii_posted_text_v0549( $submission, $data, 'creative-notes' ) ),
 		'addon'        => $addon,
 		'source_order' => isset( $_POST['aip-source-order'] ) ? absint( $_POST['aip-source-order'] ) : 0,
 	);
-	$existing       = WC()->session->get( 'aip_intake' );
-	$already_current = aip_reii_current_intake_was_captured_v0548( $existing, $current, $file_names );
-	$files_data      = $already_current && ! empty( $existing['files'] ) && is_array( $existing['files'] )
-		? array_slice( $existing['files'], 0, 4 )
-		: array();
-	if ( ! $already_current ) {
-		foreach ( array_slice( $raw_files, 0, 4 ) as $file ) {
-			$persisted = aip_reii_persist_current_file_v0548( $file );
-			if ( $persisted ) {
-				$files_data[] = $persisted;
-			}
+	if ( ! $method ) {
+		$abort = true;
+		if ( method_exists( $submission, 'set_response' ) ) {
+			$submission->set_response( 'Please choose an Amazon link or product-file upload.' );
+		}
+		return;
+	}
+	$files_data = array();
+	foreach ( array_slice( $raw_files, 0, 4 ) as $file ) {
+		$persisted = aip_reii_persist_current_file_v0549( $file );
+		if ( $persisted ) {
+			$files_data[] = $persisted;
 		}
 	}
 	$intake = array_merge(
 		$current,
 		array(
-			'file_names'   => $already_current && ! empty( $existing['file_names'] ) ? array_slice( $existing['file_names'], 0, 4 ) : $file_names,
+			'file_names'   => array_values( array_map( static function( $file ) { return $file['name']; }, $files_data ) ),
 			'files'        => array_slice( $files_data, 0, 4 ),
-			'submitted_at' => $already_current ? $existing['submitted_at'] : current_time( DATE_ATOM ),
+			'submitted_at' => current_time( DATE_ATOM ),
 		)
 	);
 	$is_upload = 'Upload product files' === $intake['method'];
@@ -716,7 +726,7 @@ function aip_reii_capture_current_intake_v0548( $contact_form, &$abort, $submiss
 	WC()->cart->set_session();
 }
 
-function aip_reii_service_order_items_v0548( $order ) {
+function aip_reii_service_order_items_v0549( $order ) {
 	$items = array();
 	if ( ! is_a( $order, 'WC_Order' ) ) {
 		return $items;
@@ -730,8 +740,8 @@ function aip_reii_service_order_items_v0548( $order ) {
 	return $items;
 }
 
-function aip_reii_is_service_checkout_v0548( $order ) {
-	if ( aip_reii_service_order_items_v0548( $order ) ) {
+function aip_reii_is_service_checkout_v0549( $order ) {
+	if ( aip_reii_service_order_items_v0549( $order ) ) {
 		return true;
 	}
 	if ( function_exists( 'WC' ) && WC()->cart ) {
@@ -745,7 +755,7 @@ function aip_reii_is_service_checkout_v0548( $order ) {
 	return false;
 }
 
-function aip_reii_cart_intake_v0548() {
+function aip_reii_cart_intake_v0549() {
 	if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
 		return array();
 	}
@@ -758,7 +768,7 @@ function aip_reii_cart_intake_v0548() {
 	return array();
 }
 
-function aip_reii_display_reference_v0548( $reference ) {
+function aip_reii_display_reference_v0549( $reference ) {
 	$reference = trim( (string) $reference );
 	if ( preg_match( '/(?:^|[^A-Z0-9])(B0[A-Z0-9]{8})(?=$|[^A-Z0-9])/i', $reference, $matches ) ) {
 		return 'ASIN: ' . strtoupper( $matches[1] );
@@ -769,7 +779,7 @@ function aip_reii_display_reference_v0548( $reference ) {
 	return strlen( $reference ) > 45 ? substr( $reference, 0, 42 ) . '...' : $reference;
 }
 
-function aip_reii_apply_intake_to_item_v0548( $item, $intake, $save = false ) {
+function aip_reii_apply_intake_to_item_v0549( $item, $intake, $save = false ) {
 	foreach ( array( 'Product source', 'Amazon link / ASIN', '_aip_raw_reference', 'Customer instructions', 'Video add-on', 'Source order', 'Uploaded file', 'Uploaded files' ) as $key ) {
 		$item->delete_meta_data( $key );
 	}
@@ -777,7 +787,7 @@ function aip_reii_apply_intake_to_item_v0548( $item, $intake, $save = false ) {
 		$item->add_meta_data( 'Product source', wc_clean( $intake['method'] ), true );
 	}
 	if ( ! empty( $intake['reference'] ) ) {
-		$item->add_meta_data( 'Amazon link / ASIN', aip_reii_display_reference_v0548( $intake['reference'] ), true );
+		$item->add_meta_data( 'Amazon link / ASIN', aip_reii_display_reference_v0549( $intake['reference'] ), true );
 		$item->add_meta_data( '_aip_raw_reference', wc_clean( $intake['reference'] ), true );
 	}
 	if ( ! empty( $intake['notes'] ) ) {
@@ -805,13 +815,13 @@ function aip_reii_apply_intake_to_item_v0548( $item, $intake, $save = false ) {
 	}
 }
 
-function aip_reii_apply_current_intake_to_order_v0548( $order, $save_items = false ) {
-	if ( ! is_a( $order, 'WC_Order' ) || ! aip_reii_is_service_checkout_v0548( $order ) ) {
+function aip_reii_apply_current_intake_to_order_v0549( $order, $save_items = false ) {
+	if ( ! is_a( $order, 'WC_Order' ) || ! aip_reii_is_service_checkout_v0549( $order ) ) {
 		return false;
 	}
 	// A fresh order is authored from its exact cart line. Never use an unrelated
 	// global session intake to rewrite an existing/retry order whose cart is gone.
-	$intake = aip_reii_cart_intake_v0548();
+	$intake = aip_reii_cart_intake_v0549();
 	if ( ! is_array( $intake ) || empty( $intake ) ) {
 		return false;
 	}
@@ -829,46 +839,59 @@ function aip_reii_apply_current_intake_to_order_v0548( $order, $save_items = fal
 	} else {
 		$order->delete_meta_data( '_aip_uploaded_files' );
 	}
-	foreach ( aip_reii_service_order_items_v0548( $order ) as $item ) {
-		aip_reii_apply_intake_to_item_v0548( $item, $intake, $save_items );
+	foreach ( aip_reii_service_order_items_v0549( $order ) as $item ) {
+		aip_reii_apply_intake_to_item_v0549( $item, $intake, $save_items );
 	}
 	return true;
 }
 
-function aip_reii_copy_current_intake_to_order_item_v0548( $item, $cart_item_key, $values, $order ) {
+function aip_reii_copy_current_intake_to_order_item_v0549( $item, $cart_item_key, $values, $order ) {
 	if ( empty( $values['aip_intake'] ) || empty( $values['data'] ) || 'on-model-content-order' !== $values['data']->get_sku() ) {
 		return;
 	}
-	aip_reii_apply_intake_to_item_v0548( $item, $values['aip_intake'] );
+	aip_reii_apply_intake_to_item_v0549( $item, $values['aip_intake'] );
 }
 
-function aip_reii_apply_current_intake_to_classic_order_v0548( $order, $data ) {
-	aip_reii_apply_current_intake_to_order_v0548( $order );
+function aip_reii_apply_current_intake_to_classic_order_v0549( $order, $data ) {
+	aip_reii_apply_current_intake_to_order_v0549( $order );
 }
 
-function aip_reii_apply_current_intake_to_store_order_v0548( $order, $request ) {
-	if ( is_a( $order, 'WC_Order' ) && aip_reii_is_service_checkout_v0548( $order ) && ! $order->get_billing_country() ) {
+function aip_reii_apply_current_intake_to_store_order_v0549( $order, $request ) {
+	if ( is_a( $order, 'WC_Order' ) && aip_reii_is_service_checkout_v0549( $order ) && ! $order->get_billing_country() ) {
 		$order->set_billing_country( aip_reii_default_billing_country() );
 	}
-	aip_reii_apply_current_intake_to_order_v0548( $order );
+	aip_reii_apply_current_intake_to_order_v0549( $order );
 }
 
-add_action( 'woocommerce_checkout_create_order_line_item', 'aip_reii_copy_current_intake_to_order_item_v0548', 9999, 4 );
-add_action( 'woocommerce_checkout_create_order', 'aip_reii_apply_current_intake_to_classic_order_v0548', 9999, 2 );
-add_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_apply_current_intake_to_store_order_v0548', 10000, 2 );
+add_action( 'woocommerce_checkout_create_order_line_item', 'aip_reii_copy_current_intake_to_order_item_v0549', 9999, 4 );
+add_action( 'woocommerce_checkout_create_order', 'aip_reii_apply_current_intake_to_classic_order_v0549', 9999, 2 );
+add_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_apply_current_intake_to_store_order_v0549', 10000, 2 );
 
-function aip_reii_register_current_intake_capture_v0548() {
+function aip_reii_register_current_intake_capture_v0549() {
 	remove_action( 'wpcf7_before_send_mail', 'aip_reii_capture_direct_purchase', 99 );
 	remove_action( 'wpcf7_before_send_mail', array( 'AIP_On_Model_Commerce_GitHub', 'capture_intake' ), 10 );
 	remove_action( 'wpcf7_before_send_mail', array( 'AIP_On_Model_Commerce', 'capture_intake' ), 10 );
+	remove_action( 'wpcf7_before_send_mail', 'aip_reii_capture_current_intake_v0548', 1000 );
+	remove_action( 'woocommerce_checkout_create_order_line_item', 'aip_reii_copy_current_intake_to_order_item_v0548', 9999 );
+	remove_action( 'woocommerce_checkout_create_order', 'aip_reii_apply_current_intake_to_classic_order_v0548', 9999 );
+	remove_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_apply_current_intake_to_store_order_v0548', 10000 );
+	if ( ! has_action( 'woocommerce_checkout_create_order_line_item', 'aip_reii_copy_current_intake_to_order_item_v0549' ) ) {
+		add_action( 'woocommerce_checkout_create_order_line_item', 'aip_reii_copy_current_intake_to_order_item_v0549', 9999, 4 );
+	}
+	if ( ! has_action( 'woocommerce_checkout_create_order', 'aip_reii_apply_current_intake_to_classic_order_v0549' ) ) {
+		add_action( 'woocommerce_checkout_create_order', 'aip_reii_apply_current_intake_to_classic_order_v0549', 9999, 2 );
+	}
+	if ( ! has_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_apply_current_intake_to_store_order_v0549' ) ) {
+		add_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_apply_current_intake_to_store_order_v0549', 10000, 2 );
+	}
 	// The pre-0.5.48 Store API fallback reads the global session. Leaving it
 	// active could rewrite an existing payment-retry order with a later intake.
 	remove_action( 'woocommerce_store_api_checkout_update_order_from_request', 'aip_reii_store_api_billing_country', 999 );
-	if ( ! has_action( 'wpcf7_before_send_mail', 'aip_reii_capture_current_intake_v0548' ) ) {
-		add_action( 'wpcf7_before_send_mail', 'aip_reii_capture_current_intake_v0548', 1000, 3 );
+	if ( ! has_action( 'wpcf7_before_send_mail', 'aip_reii_capture_current_intake_v0549' ) ) {
+		add_action( 'wpcf7_before_send_mail', 'aip_reii_capture_current_intake_v0549', 1000, 3 );
 	}
 }
-add_action( 'init', 'aip_reii_register_current_intake_capture_v0548', PHP_INT_MAX );
+add_action( 'init', 'aip_reii_register_current_intake_capture_v0549', PHP_INT_MAX );
 }
 
 // Register the order API independently from the plugin class bootstrap. A
@@ -893,7 +916,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.48';
+	const VERSION     = '0.5.49';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
