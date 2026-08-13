@@ -283,11 +283,6 @@
       var source=form.querySelector('input[name="aip-source-order"]');
       if(!source){source=document.createElement('input');source.type='hidden';source.name='aip-source-order';form.appendChild(source);}
       source.value=sourceOrder||'';
-      var notes=form.querySelector('textarea[name="creative-notes"],textarea[name="your-message"]');
-      if(notes&&selected){
-        var line='Requested add-on: '+selected.label+' (+$'+selected.price+').';
-        if(notes.value.indexOf(line)===-1){notes.value=(notes.value?notes.value.replace(/\s+$/,'')+'\n':'')+line;}
-      }
     }
     if(modal){
       var title=modal.querySelector('.aip-form-wrap h3');
