@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.46
+ * Version: 0.5.47
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -453,6 +453,14 @@ function aip_reii_capture_direct_purchase( $contact_form, &$abort, $submission )
 		'files'        => array_slice( $files_data, 0, 4 ),
 		'submitted_at' => current_time( DATE_ATOM ),
 	);
+	$is_upload = 'Upload product files' === $intake['method'];
+	if ( ( $is_upload && empty( $intake['files'] ) ) || ( ! $is_upload && empty( $intake['reference'] ) ) ) {
+		$abort = true;
+		if ( method_exists( $submission, 'set_response' ) ) {
+			$submission->set_response( $is_upload ? 'Please upload at least one product file.' : 'Please paste an Amazon link or ASIN.' );
+		}
+		return;
+	}
 	$added = WC()->cart->add_to_cart(
 		$product->get_id(),
 		1,
@@ -549,7 +557,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.46';
+	const VERSION     = '0.5.47';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
@@ -1684,6 +1692,14 @@ final class AIP_On_Model_Commerce_GitHub {
 			'files'        => array_slice( $files_data, 0, 4 ),
 			'submitted_at' => current_time( DATE_ATOM ),
 		);
+		$is_upload = 'Upload product files' === $method;
+		if ( ( $is_upload && empty( $intake['files'] ) ) || ( ! $is_upload && empty( $reference ) ) ) {
+			$abort = true;
+			if ( method_exists( $submission, 'set_response' ) ) {
+				$submission->set_response( $is_upload ? 'Please upload at least one product file.' : 'Please paste an Amazon link or ASIN.' );
+			}
+			return;
+		}
 
 		if ( function_exists( 'wc_load_cart' ) && ! WC()->cart ) {
 			wc_load_cart();
