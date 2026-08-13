@@ -1,4 +1,63 @@
 (function(){
+  function ensureSubmitHandoff(form){
+    if(!form)return null;
+    var submit=form.querySelector('input[type="submit"],button[type="submit"]');
+    if(!submit)return null;
+    var shell=submit.closest('.aip-submit-shell');
+    if(!shell){
+      shell=document.createElement('div');
+      shell.className='aip-submit-shell';
+      submit.parentNode.insertBefore(shell,submit);
+      shell.appendChild(submit);
+    }
+    if(!shell.querySelector('.aip-submit-status')){
+      var status=document.createElement('span');
+      status.className='aip-submit-status';
+      status.setAttribute('aria-hidden','true');
+      status.innerHTML='<i></i><b>Opening secure payment&hellip;</b>';
+      shell.appendChild(status);
+    }
+    var route=shell.nextElementSibling;
+    if(!route||!route.classList.contains('aip-submit-route')){
+      route=document.createElement('div');
+      route.className='aip-submit-route';
+      route.setAttribute('role','status');
+      route.setAttribute('aria-live','polite');
+      route.setAttribute('aria-atomic','true');
+      route.setAttribute('aria-hidden','true');
+      route.innerHTML='<span><i></i></span><div><strong>Moving you to payment</strong><small>Saving your product details and preparing protected checkout.</small></div>';
+      shell.parentNode.insertBefore(route,shell.nextSibling);
+    }
+    return {submit:submit,shell:shell,route:route};
+  }
+
+  function setSubmitHandoff(form,busy){
+    var handoff=ensureSubmitHandoff(form);
+    if(!handoff)return;
+    form.classList.toggle('aip-is-handing-off',busy);
+    handoff.shell.classList.toggle('is-busy',busy);
+    handoff.route.classList.toggle('is-visible',busy);
+    handoff.route.setAttribute('aria-hidden',busy?'false':'true');
+    handoff.submit.setAttribute('aria-busy',busy?'true':'false');
+    if(busy){
+      handoff.submit.setAttribute('aria-label','Opening secure payment');
+      var progress=form.closest('.aip-order-dialog');
+      progress=progress&&progress.querySelector('.aip-checkout-progress');
+      if(progress)progress.classList.add('is-handoff');
+    }else{
+      handoff.submit.removeAttribute('aria-label');
+      var dialog=form.closest('.aip-order-dialog');
+      var stepper=dialog&&dialog.querySelector('.aip-checkout-progress');
+      if(stepper)stepper.classList.remove('is-handoff');
+    }
+  }
+
+  function formFromCf7Event(event){
+    if(!event||!event.target)return null;
+    if(event.target.matches&&event.target.matches('form'))return event.target;
+    return event.target.querySelector?event.target.querySelector('form'):null;
+  }
+
   function initProductSource(portal){
     if(!portal||portal.dataset.sourceReady==='1')return;
     portal.dataset.sourceReady='1';
@@ -50,6 +109,8 @@
       if(error)error.textContent='';
     }
     portal.addEventListener('change',function(event){if(event.target.name==='source-method')sync();});
+    var initialForm=portal.querySelector('form.wpcf7-form,form');
+    if(initialForm)ensureSubmitHandoff(initialForm);
     portal.addEventListener('submit',function(event){
       var form=event.target;
       var selected=portal.querySelector('input[name="source-method"]:checked');
@@ -70,6 +131,7 @@
           form.setAttribute('data-status','init');
           form.classList.remove('sent','submitting','failed','invalid');
         }
+        setSubmitHandoff(form,true);
       }
     },true);
     sync();
@@ -86,6 +148,19 @@
     var dots=portal.querySelectorAll('[data-aip-section]');
     var topbar=portal.querySelector('.aip-topbar');
     var panels=portal.querySelectorAll('.aip-page-panel');
+    var darkPanels=portal.querySelectorAll('.aip-process-panel');
+
+    function updateTopbarTheme(){
+      if(!topbar)return;
+      var brand=topbar.querySelector('.aip-brand')||topbar;
+      var brandRect=brand.getBoundingClientRect();
+      var logoLine=brandRect.top+(brandRect.height/2);
+      var isOverDark=Array.prototype.some.call(darkPanels,function(panel){
+        var rect=panel.getBoundingClientRect();
+        return rect.top<=logoLine&&rect.bottom>logoLine;
+      });
+      topbar.classList.toggle('is-on-dark',isOverDark);
+    }
 
     function updateActiveSection(){
       var activeId='';
@@ -118,9 +193,7 @@
       dots.forEach(function(dot){
         dot.classList.toggle('is-active',dot.dataset.aipSection===activeId);
       });
-      if(topbar){
-        topbar.classList.toggle('is-on-dark',activeId==='how-it-works');
-      }
+      updateTopbarTheme();
     }
 
     if('IntersectionObserver' in window){
@@ -143,9 +216,7 @@
             dots.forEach(function(dot){
               dot.classList.toggle('is-active',dot.dataset.aipSection===targetId);
             });
-            if(topbar){
-              topbar.classList.toggle('is-on-dark',targetId==='how-it-works');
-            }
+            updateTopbarTheme();
             setTimeout(updateActiveSection,300);
             setTimeout(updateActiveSection,600);
           }
@@ -271,38 +342,110 @@
   document.addEventListener('wpcf7init',initPortal);
   window.addEventListener('load',initPortal);
 
+  ['wpcf7invalid','wpcf7spam','wpcf7mailfailed'].forEach(function(eventName){
+    document.addEventListener(eventName,function(event){
+      var form=formFromCf7Event(event);
+      if(form)setSubmitHandoff(form,false);
+    },true);
+  });
+  document.addEventListener('wpcf7submit',function(event){
+    var status=event.detail&&event.detail.status?String(event.detail.status):'';
+    if(status&&status!=='mail_sent'){
+      var form=formFromCf7Event(event);
+      if(form)setSubmitHandoff(form,false);
+    }
+  },true);
+
   function openPaymentModal(email){
     var previous=document.querySelector('.aip-payment-modal');
-    if(previous)previous.remove();
+    if(previous){
+      if(typeof previous.aipCleanup==='function')previous.aipCleanup();
+      previous.remove();
+    }
     var modal=document.createElement('div');
     modal.className='aip-payment-modal';
     modal.setAttribute('role','dialog');
     modal.setAttribute('aria-modal','true');
     modal.setAttribute('aria-labelledby','aip-payment-title');
-    modal.innerHTML='<button class="aip-payment-backdrop" type="button" aria-label="Close secure checkout"></button><section class="aip-payment-panel"><header class="aip-payment-header"><div class="aip-payment-heading"><span class="aip-payment-brand">REii<i>.</i></span><span class="aip-payment-title"><small>STEP 2 OF 3</small><strong id="aip-payment-title">Secure checkout</strong></span></div><span class="aip-payment-trust">Protected payment</span><button class="aip-payment-close" type="button" aria-label="Close secure checkout">&times;</button></header><div class="aip-payment-loading" role="status" aria-live="polite"><span></span>Preparing Stripe checkout...</div><iframe class="aip-payment-frame" title="Secure Stripe checkout" allow="payment *" src="'+new URL('/checkout/?aip_embedded=1',window.location.origin).href+'"></iframe></section>';
+    modal.setAttribute('data-step','2');
+    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close secure checkout"></button><section class="aip-payment-panel"><header class="aip-payment-header"><div class="aip-payment-heading"><span class="aip-payment-brand">REii<i>.</i><small>REIMAGINE</small></span><span class="aip-payment-title"><small>SECURE CHECKOUT &middot; STEP 2 OF 3</small><strong id="aip-payment-title">Complete your order</strong></span></div><span class="aip-payment-trust">Protected payment</span><button class="aip-payment-close" type="button" aria-label="Close secure checkout">&times;</button></header><div class="aip-payment-progress" role="list" aria-label="Checkout progress"><span class="is-complete" role="listitem" data-aip-payment-step="1"><i>&#10003;</i><b>Product</b></span><em></em><span class="is-active" role="listitem" aria-current="step" data-aip-payment-step="2"><i>2</i><b>Payment</b></span><em></em><span role="listitem" data-aip-payment-step="3"><i>3</i><b>Confirmation</b></span></div><p class="aip-payment-announcement" role="status" aria-live="polite" aria-atomic="true"></p><div class="aip-payment-stage"><div class="aip-payment-loading" role="status" aria-live="polite"><div class="aip-payment-loading-card"><small>SECURE CONNECTION</small><i class="aip-payment-spinner"></i><strong>Preparing your checkout</strong><p>Your product details are saved. We&rsquo;re opening protected payment now.</p><span class="aip-payment-loading-line"><b></b></span></div></div><iframe class="aip-payment-frame" title="Secure Stripe checkout" allow="payment *" src="'+new URL('/checkout/?aip_embedded=1',window.location.origin).href+'"></iframe></div></section>';
+    var paymentTrigger=document.activeElement;
     document.body.appendChild(modal);
     document.body.classList.add('aip-payment-open');
+    var obscured=document.querySelector('.aip-portal');
+    if(obscured)obscured.setAttribute('inert','');
     window.requestAnimationFrame(function(){modal.classList.add('is-open');});
     var frame=modal.querySelector('.aip-payment-frame');
     var closeButton=modal.querySelector('.aip-payment-close');
+    var titleEyebrow=modal.querySelector('.aip-payment-title small');
+    var title=modal.querySelector('.aip-payment-title strong');
+    var trust=modal.querySelector('.aip-payment-trust');
+    var announcement=modal.querySelector('.aip-payment-announcement');
     function sendEmail(){
       if(email&&frame.contentWindow)frame.contentWindow.postMessage({type:'aipCheckoutEmail',email:email},window.location.origin);
+    }
+    function markComplete(){
+      if(modal.classList.contains('is-complete'))return;
+      modal.classList.add('is-loaded','is-complete');
+      modal.setAttribute('data-step','3');
+      if(titleEyebrow)titleEyebrow.innerHTML='PAYMENT COMPLETE &middot; STEP 3 OF 3';
+      if(title)title.textContent='Your order is confirmed';
+      if(trust)trust.textContent='Payment received';
+      if(announcement)announcement.textContent='Payment complete. Your order is confirmed.';
+      closeButton.setAttribute('aria-label','Close order confirmation');
+      frame.setAttribute('title','REii order confirmation');
+      modal.querySelectorAll('[data-aip-payment-step]').forEach(function(step){
+        var complete=step.getAttribute('data-aip-payment-step')!=='3';
+        step.classList.toggle('is-complete',complete);
+        step.classList.toggle('is-active',!complete);
+        if(complete)step.removeAttribute('aria-current');else step.setAttribute('aria-current','step');
+        if(complete)step.querySelector('i').innerHTML='&#10003;';
+      });
+    }
+    function frameShowsConfirmation(){
+      try{
+        var path=frame.contentWindow&&frame.contentWindow.location?frame.contentWindow.location.pathname:'';
+        var body=frame.contentDocument&&frame.contentDocument.body;
+        return String(path).indexOf('/order-received/')!==-1||Boolean(body&&body.classList.contains('woocommerce-order-received'));
+      }catch(ignore){return false;}
+    }
+    function receiveCheckoutMessage(event){
+      if(event.origin!==window.location.origin||event.source!==frame.contentWindow||!event.data)return;
+      if(event.data.type==='aipCheckoutReady')sendEmail();
+      if(event.data.type==='aipCheckoutComplete')markComplete();
+    }
+    function cleanup(){
+      document.removeEventListener('keydown',escapePayment,true);
+      window.removeEventListener('message',receiveCheckoutMessage);
     }
     function closePayment(){
       modal.classList.remove('is-open');
       document.body.classList.remove('aip-payment-open');
-      document.removeEventListener('keydown',escapePayment,true);
-      window.setTimeout(function(){modal.remove();},260);
+      if(obscured)obscured.removeAttribute('inert');
+      cleanup();
+      window.setTimeout(function(){modal.remove();if(paymentTrigger&&document.body.contains(paymentTrigger))paymentTrigger.focus();},260);
     }
-    function escapePayment(event){if(event.key==='Escape')closePayment();}
+    function escapePayment(event){
+      if(event.key==='Escape'){closePayment();return;}
+      if(event.key==='Tab'){
+        var first=closeButton;
+        var last=frame;
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+      }
+    }
     frame.addEventListener('load',function(){
       modal.classList.add('is-loaded');
+      if(frameShowsConfirmation())markComplete();
+      else if(announcement)announcement.textContent='Secure checkout is ready.';
       window.setTimeout(sendEmail,100);
       window.setTimeout(sendEmail,700);
     });
     modal.querySelector('.aip-payment-backdrop').addEventListener('click',closePayment);
     closeButton.addEventListener('click',closePayment);
     document.addEventListener('keydown',escapePayment,true);
+    window.addEventListener('message',receiveCheckoutMessage);
+    modal.aipCleanup=cleanup;
     window.setTimeout(function(){closeButton.focus();},50);
   }
 
@@ -312,5 +455,7 @@
     event.stopImmediatePropagation();
     var emailInput=portal.querySelector('input[name="your-email"]');
     openPaymentModal(emailInput?emailInput.value:'');
+    var form=formFromCf7Event(event);
+    if(form)setSubmitHandoff(form,false);
   },true);
 })();
