@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.49
+Stable tag: 0.5.50
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.50 =
+* Keep the corrected upload handler authoritative when a legacy plugin copy initializes later in the WordPress request.
 
 = 0.5.49 =
 * Correctly recognize Contact Form 7 radio values so file-upload orders validate their uploaded files instead of requesting an Amazon ASIN.

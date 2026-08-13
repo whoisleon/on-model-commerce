@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.49
+ * Version: 0.5.50
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -892,6 +892,9 @@ function aip_reii_register_current_intake_capture_v0549() {
 	}
 }
 add_action( 'init', 'aip_reii_register_current_intake_capture_v0549', PHP_INT_MAX );
+// Run once more after every plugin's init callback. This makes the current
+// handlers authoritative even if an older duplicate registered itself later.
+add_action( 'wp_loaded', 'aip_reii_register_current_intake_capture_v0549', PHP_INT_MAX );
 }
 
 // Register the order API independently from the plugin class bootstrap. A
@@ -916,7 +919,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.49';
+	const VERSION     = '0.5.50';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
