@@ -52,12 +52,6 @@
     }
   }
 
-  function formFromCf7Event(event){
-    if(!event||!event.target)return null;
-    if(event.target.matches&&event.target.matches('form'))return event.target;
-    return event.target.querySelector?event.target.querySelector('form'):null;
-  }
-
   function initProductSource(portal){
     if(!portal||portal.dataset.sourceReady==='1')return;
     portal.dataset.sourceReady='1';
@@ -67,7 +61,7 @@
       var dropzone=document.createElement('div');
       dropzone.className='aip-dropzone';
       dropzone.innerHTML='<div class="aip-drop-prompt"><div class="aip-drop-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg></div><div class="aip-drop-text"><strong>Drop up to 4 product files here</strong>or <button type="button" class="aip-drop-browse">browse from your device</button></div><small class="aip-drop-sub">JPG, PNG, WEBP, PDF, or ZIP · 20 MB per file</small></div><div class="aip-drop-preview-list" hidden></div><div class="aip-drop-footer" hidden><span class="aip-drop-count"></span><button type="button" class="aip-drop-add">+ Add another file</button></div>';
-      var firstWrap=fileInputs[0].closest('.wpcf7-form-control-wrap')||fileInputs[0];
+      var firstWrap=fileInputs[0];
       firstWrap.parentNode.insertBefore(dropzone,firstWrap);
       fileInputs.forEach(function(input){dropzone.appendChild(input);input.classList.add('aip-hidden-file-input');});
       var browseBtn=dropzone.querySelector('.aip-drop-browse');
@@ -95,7 +89,8 @@
         });
         updatePreview();
       }
-      document.addEventListener('wpcf7reset',function(e){if(!e.target||e.target.closest('.aip-portal')===portal||e.target===portal){clearFormFiles();}});
+      var nativeForm=dropzone.closest('form');
+      if(nativeForm)nativeForm.addEventListener('reset',clearFormFiles);
     }
     }
     function sync(){
@@ -109,30 +104,58 @@
       if(error)error.textContent='';
     }
     portal.addEventListener('change',function(event){if(event.target.name==='source-method')sync();});
-    var initialForm=portal.querySelector('form.wpcf7-form,form');
+    var initialForm=portal.querySelector('form.aip-native-intake,form');
     if(initialForm)ensureSubmitHandoff(initialForm);
     portal.addEventListener('submit',function(event){
       var form=event.target;
+      if(!form.classList.contains('aip-native-intake'))return;
       var selected=portal.querySelector('input[name="source-method"]:checked');
       var upload=selected?selected.value==='Upload product files':false;
       var reference=portal.querySelector('input[name="product-reference"]');
       var files=Array.prototype.slice.call(portal.querySelectorAll('input[name^="product-file-"]'));
+      var email=portal.querySelector('input[name="your-email"]');
+      var rights=portal.querySelector('input[name="rights-confirmed"]');
       var error=portal.querySelector('.aip-form-error');
       var hasFile=files.some(function(file){if(!file.files)return false;return file.files.length>0;});
       var hasReference=reference?Boolean(reference.value.trim()):false;
       var missing=upload?!hasFile:!hasReference;
+      var oversized=files.find(function(input){return input.files&&input.files[0]&&input.files[0].size>20*1024*1024;});
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if(!email||!email.value.trim()||!email.checkValidity()){
+        if(error)error.textContent='Please provide a valid email address.';
+        if(email)email.focus();
+        return;
+      }
       if(missing){
-        event.preventDefault();
-        event.stopImmediatePropagation();
         if(error)error.textContent=upload?'Please upload at least one product image, PDF, or ZIP file.':'Please paste an Amazon link or ASIN.';
         (upload?(portal.querySelector('.aip-drop-browse')||files[0]):reference).focus();
-      }else{
-        if(form&&form.getAttribute('data-status')==='sent'){
-          form.setAttribute('data-status','init');
-          form.classList.remove('sent','submitting','failed','invalid');
-        }
-        setSubmitHandoff(form,true);
+        return;
       }
+      if(oversized){if(error)error.textContent='Each upload must be 20 MB or smaller.';oversized.focus();return;}
+      if(!rights||!rights.checked){if(error)error.textContent='Please confirm you have permission to use these product details.';if(rights)rights.focus();return;}
+      var cfg=window.aipNativeCheckoutConfig||{};
+      if(!cfg.ajaxUrl||!cfg.nonce){if(error)error.textContent='Secure checkout is temporarily unavailable. Please refresh and try again.';return;}
+      if(form.dataset.aipSubmitting==='1')return;
+      form.dataset.aipSubmitting='1';
+      if(error)error.textContent='';
+      setSubmitHandoff(form,true);
+      var payload=new FormData(form);
+      payload.append('action','aip_reii_prepare_checkout');
+      payload.append('nonce',cfg.nonce);
+      fetch(cfg.ajaxUrl,{method:'POST',body:payload,credentials:'same-origin',headers:{'Accept':'application/json'}})
+        .then(function(response){return response.json().catch(function(){throw new Error('Checkout returned an unreadable response.');});})
+        .then(function(result){
+          if(!result||!result.success){var message=result&&result.data&&result.data.message?result.data.message:'Checkout could not prepare this order.';throw new Error(message);}
+          setSubmitHandoff(form,false);
+          form.dataset.aipSubmitting='0';
+          openPaymentModal(result.data.email||email.value,result.data.checkout_url||cfg.checkoutUrl||'');
+        })
+        .catch(function(problem){
+          form.dataset.aipSubmitting='0';
+          setSubmitHandoff(form,false);
+          if(error)error.textContent=problem&&problem.message?problem.message:'Checkout could not prepare this order. Please try again.';
+        });
     },true);
     sync();
   }
@@ -352,24 +375,9 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){initPortal();initOfferFromUrl();});else{initPortal();initOfferFromUrl();}
-  document.addEventListener('wpcf7init',initPortal);
   window.addEventListener('load',initPortal);
 
-  ['wpcf7invalid','wpcf7spam','wpcf7mailfailed'].forEach(function(eventName){
-    document.addEventListener(eventName,function(event){
-      var form=formFromCf7Event(event);
-      if(form)setSubmitHandoff(form,false);
-    },true);
-  });
-  document.addEventListener('wpcf7submit',function(event){
-    var status=event.detail&&event.detail.status?String(event.detail.status):'';
-    if(status&&status!=='mail_sent'){
-      var form=formFromCf7Event(event);
-      if(form)setSubmitHandoff(form,false);
-    }
-  },true);
-
-  function openPaymentModal(email){
+  function openPaymentModal(email,checkoutUrl){
     var previous=document.querySelector('.aip-payment-modal');
     if(previous){
       if(typeof previous.aipCleanup==='function')previous.aipCleanup();
@@ -381,7 +389,9 @@
     modal.setAttribute('aria-modal','true');
     modal.setAttribute('aria-labelledby','aip-payment-title');
     modal.setAttribute('data-step','2');
-    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close secure checkout"></button><section class="aip-payment-panel"><header class="aip-payment-header"><div class="aip-payment-heading"><span class="aip-payment-brand">REii<i>.</i><small>REIMAGINE</small></span><span class="aip-payment-title"><small>SECURE CHECKOUT &middot; STEP 2 OF 3</small><strong id="aip-payment-title">Complete your order</strong></span></div><span class="aip-payment-trust">Protected payment</span><button class="aip-payment-close" type="button" aria-label="Close secure checkout">&times;</button></header><div class="aip-payment-progress" role="list" aria-label="Checkout progress"><span class="is-complete" role="listitem" data-aip-payment-step="1"><i>&#10003;</i><b>Product</b></span><em></em><span class="is-active" role="listitem" aria-current="step" data-aip-payment-step="2"><i>2</i><b>Payment</b></span><em></em><span role="listitem" data-aip-payment-step="3"><i>3</i><b>Confirmation</b></span></div><p class="aip-payment-announcement" role="status" aria-live="polite" aria-atomic="true"></p><div class="aip-payment-stage"><div class="aip-payment-loading" role="status" aria-live="polite"><div class="aip-payment-loading-card"><small>SECURE CONNECTION</small><i class="aip-payment-spinner"></i><strong>Preparing your checkout</strong><p>Your product details are saved. We&rsquo;re opening protected payment now.</p><span class="aip-payment-loading-line"><b></b></span></div></div><iframe class="aip-payment-frame" title="Secure Stripe checkout" allow="payment *" src="'+new URL('/checkout/?aip_embedded=1',window.location.origin).href+'"></iframe></div></section>';
+    var paymentUrl=checkoutUrl?new URL(checkoutUrl,window.location.origin):new URL('/checkout/?aip_embedded=1',window.location.origin);
+    paymentUrl.searchParams.set('aip_embedded','1');
+    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close secure checkout"></button><section class="aip-payment-panel"><header class="aip-payment-header"><div class="aip-payment-heading"><span class="aip-payment-brand">REii<i>.</i><small>REIMAGINE</small></span><span class="aip-payment-title"><small>SECURE CHECKOUT &middot; STEP 2 OF 3</small><strong id="aip-payment-title">Complete your order</strong></span></div><span class="aip-payment-trust">Protected payment</span><button class="aip-payment-close" type="button" aria-label="Close secure checkout">&times;</button></header><div class="aip-payment-progress" role="list" aria-label="Checkout progress"><span class="is-complete" role="listitem" data-aip-payment-step="1"><i>&#10003;</i><b>Product</b></span><em></em><span class="is-active" role="listitem" aria-current="step" data-aip-payment-step="2"><i>2</i><b>Payment</b></span><em></em><span role="listitem" data-aip-payment-step="3"><i>3</i><b>Confirmation</b></span></div><p class="aip-payment-announcement" role="status" aria-live="polite" aria-atomic="true"></p><div class="aip-payment-stage"><div class="aip-payment-loading" role="status" aria-live="polite"><div class="aip-payment-loading-card"><small>SECURE CONNECTION</small><i class="aip-payment-spinner"></i><strong>Preparing your checkout</strong><p>Your product details are saved. We&rsquo;re opening protected payment now.</p><span class="aip-payment-loading-line"><b></b></span></div></div><iframe class="aip-payment-frame" title="Secure Stripe checkout" allow="payment *" src="'+paymentUrl.href+'"></iframe></div></section>';
     var paymentTrigger=document.activeElement;
     document.body.appendChild(modal);
     document.body.classList.add('aip-payment-open');
@@ -394,9 +404,6 @@
     var title=modal.querySelector('.aip-payment-title strong');
     var trust=modal.querySelector('.aip-payment-trust');
     var announcement=modal.querySelector('.aip-payment-announcement');
-    function sendEmail(){
-      if(email&&frame.contentWindow)frame.contentWindow.postMessage({type:'aipCheckoutEmail',email:email},window.location.origin);
-    }
     function markComplete(){
       if(modal.classList.contains('is-complete'))return;
       modal.classList.add('is-loaded','is-complete');
@@ -424,7 +431,6 @@
     }
     function receiveCheckoutMessage(event){
       if(event.origin!==window.location.origin||event.source!==frame.contentWindow||!event.data)return;
-      if(event.data.type==='aipCheckoutReady')sendEmail();
       if(event.data.type==='aipCheckoutComplete')markComplete();
     }
     function cleanup(){
@@ -451,8 +457,6 @@
       modal.classList.add('is-loaded');
       if(frameShowsConfirmation())markComplete();
       else if(announcement)announcement.textContent='Secure checkout is ready.';
-      window.setTimeout(sendEmail,100);
-      window.setTimeout(sendEmail,700);
     });
     modal.querySelector('.aip-payment-backdrop').addEventListener('click',closePayment);
     closeButton.addEventListener('click',closePayment);
@@ -461,14 +465,4 @@
     modal.aipCleanup=cleanup;
     window.setTimeout(function(){closeButton.focus();},50);
   }
-
-  document.addEventListener('wpcf7mailsent',function(event){
-    var portal=event.target&&event.target.closest('.aip-portal');
-    if(!portal)return;
-    event.stopImmediatePropagation();
-    var emailInput=portal.querySelector('input[name="your-email"]');
-    openPaymentModal(emailInput?emailInput.value:'');
-    var form=formFromCf7Event(event);
-    if(form)setSubmitHandoff(form,false);
-  },true);
 })();

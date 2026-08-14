@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.53
+ * Version: 0.5.55
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -114,9 +114,8 @@ add_action( 'admin_post_aip_github_update', 'aip_github_updater_run' );
 add_action( 'admin_notices', 'aip_github_updater_notice' );
 }
 
-// Keep the success-to-checkout handoff outside the commerce class. A legacy
-// preloaded class can suppress the current class body, but it must not strand a
-// customer after Contact Form 7 accepts the intake.
+// Keep the native intake configuration outside the commerce class. A legacy
+// preloaded class must not be able to remove the WooCommerce checkout handoff.
 if ( ! function_exists( 'aip_reii_checkout_fallback_bridge' ) ) {
 function aip_reii_checkout_fallback_bridge() {
 	if ( ! is_page( array( 'style-by-reii', 'on-model-content' ) ) || ! function_exists( 'wc_get_checkout_url' ) ) {
@@ -125,12 +124,35 @@ function aip_reii_checkout_fallback_bridge() {
 
 	wp_enqueue_script( 'jquery' );
 	$config = array(
-		'checkoutUrl' => wc_get_checkout_url(),
+		'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+		'checkoutUrl' => add_query_arg( 'aip_embedded', '1', wc_get_checkout_url() ),
+		'nonce'       => wp_create_nonce( 'aip_reii_prepare_checkout' ),
 	);
-	$script = "(function(){window.aipFallbackCheckoutConfig=" . wp_json_encode( $config ) . ";document.addEventListener('wpcf7mailsent',function(event){var portal=event.target&&event.target.closest('.aip-portal');if(!portal)return;window.setTimeout(function(){if(document.querySelector('.aip-payment-modal,.aip-checkout-drawer'))return;window.location.assign(window.aipFallbackCheckoutConfig.checkoutUrl);},50);});})();";
+	$script = 'window.aipNativeCheckoutConfig=' . wp_json_encode( $config ) . ';';
 	wp_add_inline_script( 'jquery', $script, 'after' );
 }
 add_action( 'wp_enqueue_scripts', 'aip_reii_checkout_fallback_bridge' );
+}
+
+// Show the version WordPress is actually running at the end of the REii page.
+// Reading the plugin header here keeps the customer-facing marker honest when
+// the source repository is newer than the plugin installed on the site.
+if ( ! function_exists( 'aip_reii_render_live_version_v0555' ) ) {
+function aip_reii_render_live_version_v0555() {
+	if ( ! is_page( array( 'style-by-reii', 'on-model-content' ) ) ) {
+		return;
+	}
+
+	$plugin_data = get_file_data( __FILE__, array( 'version' => 'Version' ), 'plugin' );
+	$version     = isset( $plugin_data['version'] ) ? sanitize_text_field( $plugin_data['version'] ) : '';
+	if ( '' === $version ) {
+		return;
+	}
+
+	echo '<style id="aip-reii-live-version-style">.aip-reii-live-version{box-sizing:border-box;margin:0;padding:10px 24px 18px;text-align:center;background:#f7f5f1;color:#8b8490;font:600 10px/1.4 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.06em}</style>';
+	echo '<p class="aip-reii-live-version">' . esc_html( 'REii Commerce v' . $version ) . '</p>';
+}
+add_action( 'wp_footer', 'aip_reii_render_live_version_v0555', 5 );
 }
 
 // Keep the embedded digital checkout outside the commerce class as well. Some
@@ -310,11 +332,16 @@ function aip_reii_checkout_intro_v0551( $checkout = null ) {
 	if ( ! aip_reii_has_service_checkout_context() || ( function_exists( 'is_wc_endpoint_url' ) && is_wc_endpoint_url( 'order-received' ) ) ) {
 		return;
 	}
+	$intake = function_exists( 'WC' ) && WC()->session ? WC()->session->get( 'aip_intake' ) : array();
+	$email  = ! empty( $intake['email'] ) ? sanitize_email( $intake['email'] ) : '';
 	?>
 	<section class="aip-checkout-intro" aria-labelledby="aip-checkout-intro-title">
 		<small>SECURE PAYMENT</small>
 		<h1 id="aip-checkout-intro-title">Choose how you&rsquo;d like to pay.</h1>
 		<p>Your product details are saved. Review the total, then complete protected payment.</p>
+		<?php if ( $email && is_email( $email ) ) : ?>
+			<p class="aip-checkout-email-note">Order confirmation and private delivery will be sent to <strong><?php echo esc_html( $email ); ?></strong>.</p>
+		<?php endif; ?>
 	</section>
 	<?php
 }
@@ -366,6 +393,8 @@ function aip_reii_checkout_theme_css_v0551() {
 	body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro small{color:#a993f4;font-size:8px;font-weight:850;letter-spacing:.22em;position:relative;z-index:1}
 	body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro h1{color:#fff;font-family:Georgia,"Times New Roman",serif;font-size:29px;font-weight:500;letter-spacing:-.04em;line-height:1.05;margin:8px 0 9px;position:relative;z-index:1}
 	body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro p{color:#c7c0cb;font-size:10px;line-height:1.55;margin:0;max-width:470px;position:relative;z-index:1}
+	body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro .aip-checkout-email-note{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#eeeaf2;margin-top:16px;max-width:none;padding:12px 14px}
+	body.woocommerce-checkout.aip-embedded-checkout .aip-checkout-intro .aip-checkout-email-note strong{color:#fff;overflow-wrap:anywhere}
 	body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element,body.woocommerce-checkout.aip-embedded-checkout .wc-block-express-payment,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-express-payment{background:#fff!important;border:1px solid var(--aip-line)!important;border-radius:20px!important;box-shadow:0 14px 40px rgba(31,24,38,.06)!important;padding:18px!important}
 	body.woocommerce-checkout.aip-embedded-checkout .payment_methods,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__payment-method,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-step--payment{background:#fff!important;border:1px solid var(--aip-line)!important;border-radius:20px!important;box-shadow:0 14px 40px rgba(31,24,38,.06)!important;overflow:hidden!important;padding:18px!important}
 	body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-sidebar,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__sidebar{background:#fff!important;border:1px solid var(--aip-line)!important;border-radius:20px!important;box-shadow:0 14px 40px rgba(31,24,38,.06)!important;overflow:hidden!important}
@@ -422,15 +451,20 @@ function aip_reii_embedded_checkout_compat_styles() {
 		return;
 	}
 	$css = '
-	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
+	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.53' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.55' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
 
+function aip_reii_disable_embedded_checkout_login_reminder_v0555( $value ) {
+	return aip_reii_has_service_checkout_context() ? 'no' : $value;
+}
+
 add_filter( 'body_class', 'aip_reii_embedded_body_class', 999 );
+add_filter( 'option_woocommerce_enable_checkout_login_reminder', 'aip_reii_disable_embedded_checkout_login_reminder_v0555', 999 );
 add_action( 'wp', 'aip_reii_seed_checkout_country', 1 );
 add_filter( 'woocommerce_default_address_fields', 'aip_reii_embedded_default_fields', 999 );
 add_filter( 'woocommerce_billing_fields', 'aip_reii_embedded_billing_fields', 999 );
@@ -540,6 +574,156 @@ function aip_reii_persist_fallback_file( $file ) {
 		'size' => (int) filesize( $target ),
 	);
 }
+
+function aip_reii_native_checkout_error_v0554( $message, $status = 400 ) {
+	wp_send_json_error( array( 'message' => $message ), $status );
+}
+
+function aip_reii_persist_native_upload_v0554( $upload ) {
+	if ( ! is_array( $upload ) || UPLOAD_ERR_OK !== (int) ( $upload['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
+		return new WP_Error( 'aip_upload_failed', 'One of the product files could not be uploaded.' );
+	}
+	$size = (int) ( $upload['size'] ?? 0 );
+	if ( $size < 1 || $size > 20 * MB_IN_BYTES ) {
+		return new WP_Error( 'aip_upload_size', 'Each product file must be 20 MB or smaller.' );
+	}
+	$source_name = sanitize_file_name( (string) ( $upload['name'] ?? '' ) );
+	$extension   = strtolower( pathinfo( $source_name, PATHINFO_EXTENSION ) );
+	$allowed     = array(
+		'jpg'  => 'image/jpeg',
+		'jpeg' => 'image/jpeg',
+		'png'  => 'image/png',
+		'webp' => 'image/webp',
+		'pdf'  => 'application/pdf',
+		'zip'  => 'application/zip',
+	);
+	if ( ! isset( $allowed[ $extension ] ) || empty( $upload['tmp_name'] ) || ! is_uploaded_file( $upload['tmp_name'] ) ) {
+		return new WP_Error( 'aip_upload_type', 'Use a JPG, PNG, WEBP, PDF, or ZIP product file.' );
+	}
+	$uploads = wp_upload_dir();
+	if ( ! empty( $uploads['error'] ) ) {
+		return new WP_Error( 'aip_upload_storage', 'Product files could not be stored right now.' );
+	}
+	$relative_dir = 'aip-order-intake/' . gmdate( 'Y/m' );
+	$target_dir   = trailingslashit( $uploads['basedir'] ) . $relative_dir;
+	if ( ! wp_mkdir_p( $target_dir ) ) {
+		return new WP_Error( 'aip_upload_storage', 'Product files could not be stored right now.' );
+	}
+	$file_name = wp_unique_filename( $target_dir, substr( wp_generate_uuid4(), 0, 8 ) . '-' . $source_name );
+	$target    = trailingslashit( $target_dir ) . $file_name;
+	if ( ! move_uploaded_file( $upload['tmp_name'], $target ) ) {
+		return new WP_Error( 'aip_upload_storage', 'Product files could not be stored right now.' );
+	}
+	return array(
+		'name' => $source_name,
+		'url'  => trailingslashit( $uploads['baseurl'] ) . $relative_dir . '/' . rawurlencode( $file_name ),
+		'type' => $allowed[ $extension ],
+		'size' => (int) filesize( $target ),
+	);
+}
+
+function aip_reii_prepare_native_checkout_v0554() {
+	if ( ! check_ajax_referer( 'aip_reii_prepare_checkout', 'nonce', false ) ) {
+		aip_reii_native_checkout_error_v0554( 'Your checkout session expired. Please refresh and try again.', 403 );
+	}
+	if ( function_exists( 'wc_load_cart' ) && ( ! function_exists( 'WC' ) || ! WC()->cart || ! WC()->session ) ) {
+		wc_load_cart();
+	}
+	if ( ! function_exists( 'WC' ) || ! WC()->cart || ! WC()->session ) {
+		aip_reii_native_checkout_error_v0554( 'Secure checkout is temporarily unavailable.', 503 );
+	}
+
+	$email     = sanitize_email( wp_unslash( $_POST['your-email'] ?? '' ) );
+	$method    = sanitize_text_field( wp_unslash( $_POST['source-method'] ?? '' ) );
+	$reference = sanitize_text_field( wp_unslash( $_POST['product-reference'] ?? '' ) );
+	$rights    = '1' === (string) ( $_POST['rights-confirmed'] ?? '' );
+	if ( ! $email || ! is_email( $email ) ) {
+		aip_reii_native_checkout_error_v0554( 'Please provide a valid email address.' );
+	}
+	if ( ! in_array( $method, array( 'Amazon link / ASIN', 'Upload product files' ), true ) ) {
+		aip_reii_native_checkout_error_v0554( 'Please choose an Amazon link or product-file upload.' );
+	}
+	if ( ! $rights ) {
+		aip_reii_native_checkout_error_v0554( 'Please confirm you have permission to use these product details.' );
+	}
+	if ( 'Amazon link / ASIN' === $method && ! $reference ) {
+		aip_reii_native_checkout_error_v0554( 'Please paste an Amazon link or ASIN.' );
+	}
+
+	$product = aip_reii_direct_purchase_product();
+	if ( ! $product || ! $product->is_purchasable() ) {
+		aip_reii_native_checkout_error_v0554( 'Checkout is temporarily unavailable. Please try again shortly.', 503 );
+	}
+	$files = array();
+	if ( 'Upload product files' === $method ) {
+		foreach ( range( 1, 4 ) as $index ) {
+			$key = 'product-file-' . $index;
+			if ( empty( $_FILES[ $key ] ) || UPLOAD_ERR_NO_FILE === (int) ( $_FILES[ $key ]['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
+				continue;
+			}
+			$file = aip_reii_persist_native_upload_v0554( $_FILES[ $key ] );
+			if ( is_wp_error( $file ) ) {
+				aip_reii_native_checkout_error_v0554( $file->get_error_message() );
+			}
+			$files[] = $file;
+		}
+		if ( ! $files ) {
+			aip_reii_native_checkout_error_v0554( 'Please upload at least one product image, PDF, or ZIP file.' );
+		}
+	}
+
+	$allowed_addons = array( 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
+	$addon          = sanitize_key( wp_unslash( $_POST['aip-addon'] ?? '' ) );
+	$addon          = in_array( $addon, $allowed_addons, true ) ? $addon : '';
+	$intake         = array(
+		'email'        => $email,
+		'method'       => $method,
+		'reference'    => 'Amazon link / ASIN' === $method ? $reference : '',
+		'notes'        => sanitize_textarea_field( wp_unslash( $_POST['creative-notes'] ?? '' ) ),
+		'addon'        => $addon,
+		'source_order' => absint( $_POST['aip-source-order'] ?? 0 ),
+		'file_names'   => array_values( wp_list_pluck( $files, 'name' ) ),
+		'files'        => $files,
+		'submitted_at' => current_time( DATE_ATOM ),
+	);
+
+	foreach ( WC()->cart->get_cart() as $cart_key => $cart_item ) {
+		$cart_product = $cart_item['data'] ?? null;
+		if ( (int) ( $cart_item['product_id'] ?? 0 ) === $product->get_id() || ( $cart_product && 'on-model-content-order' === $cart_product->get_sku() ) ) {
+			WC()->cart->remove_cart_item( $cart_key );
+		}
+	}
+	$added = WC()->cart->add_to_cart(
+		$product->get_id(),
+		1,
+		0,
+		array(),
+		array( 'aip_intake' => $intake, 'aip_key' => wp_generate_uuid4() )
+	);
+	if ( ! $added ) {
+		aip_reii_native_checkout_error_v0554( 'Checkout could not prepare this order. Please try again.', 500 );
+	}
+
+	WC()->session->set( 'aip_intake', $intake );
+	if ( WC()->customer ) {
+		WC()->customer->set_billing_email( $email );
+		if ( ! WC()->customer->get_billing_country( 'edit' ) ) {
+			WC()->customer->set_billing_country( aip_reii_default_billing_country() );
+		}
+		WC()->customer->save();
+	}
+	WC()->session->set_customer_session_cookie( true );
+	WC()->cart->calculate_totals();
+	WC()->cart->set_session();
+	wp_send_json_success(
+		array(
+			'checkout_url' => add_query_arg( 'aip_embedded', '1', wc_get_checkout_url() ),
+			'email'        => $email,
+		)
+	);
+}
+add_action( 'wp_ajax_aip_reii_prepare_checkout', 'aip_reii_prepare_native_checkout_v0554' );
+add_action( 'wp_ajax_nopriv_aip_reii_prepare_checkout', 'aip_reii_prepare_native_checkout_v0554' );
 
 function aip_reii_capture_direct_purchase( $contact_form, &$abort, $submission ) {
 	if ( ! is_object( $contact_form ) || 'On-Model Content Order Form' !== $contact_form->title() ) {
@@ -674,7 +858,6 @@ function aip_reii_price_direct_purchase( $cart ) {
 }
 
 add_action( 'init', 'aip_reii_ensure_direct_purchase_product', 20 );
-add_action( 'wpcf7_before_send_mail', 'aip_reii_capture_direct_purchase', 99, 3 );
 add_action( 'template_redirect', 'aip_reii_seed_direct_purchase_checkout', 0 );
 add_action( 'woocommerce_before_calculate_totals', 'aip_reii_price_direct_purchase', 999 );
 }
@@ -1035,10 +1218,6 @@ function aip_reii_register_current_intake_capture_v0549() {
 		add_action( 'wpcf7_before_send_mail', 'aip_reii_capture_current_intake_v0549', 1000, 3 );
 	}
 }
-add_action( 'init', 'aip_reii_register_current_intake_capture_v0549', PHP_INT_MAX );
-// Run once more after every plugin's init callback. This makes the current
-// handlers authoritative even if an older duplicate registered itself later.
-add_action( 'wp_loaded', 'aip_reii_register_current_intake_capture_v0549', PHP_INT_MAX );
 }
 
 // Register the order API independently from the plugin class bootstrap. A
@@ -1062,7 +1241,6 @@ function aip_reii_skip_intake_autoresponder_v0553( $skip_mail, $contact_form ) {
 	}
 	return $skip_mail;
 }
-add_filter( 'wpcf7_skip_mail', 'aip_reii_skip_intake_autoresponder_v0553', PHP_INT_MAX, 2 );
 }
 
 // A paid REii order sends the processing receipt, then the completed delivery
@@ -1131,7 +1309,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.53';
+	const VERSION     = '0.5.55';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
@@ -1141,7 +1319,6 @@ final class AIP_On_Model_Commerce_GitHub {
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_order_statuses' ) );
 		add_filter( 'wc_order_statuses', array( __CLASS__, 'order_status_labels' ) );
-		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'checkout_bridge_script' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'fast_checkout_styles' ) );
 		add_filter( 'body_class', array( __CLASS__, 'fast_checkout_body_class' ) );
 		add_filter( 'woocommerce_default_address_fields', array( __CLASS__, 'optional_address_fields' ) );
@@ -1149,8 +1326,6 @@ final class AIP_On_Model_Commerce_GitHub {
 		add_filter( 'woocommerce_checkout_fields', array( __CLASS__, 'remove_service_billing_fields' ), 100 );
 		add_action( 'admin_init', array( __CLASS__, 'ensure_service_product' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'service_product_notice' ) );
-		add_action( 'wpcf7_before_send_mail', array( __CLASS__, 'capture_intake' ), 10, 3 );
-		add_filter( 'wpcf7_skip_mail', array( __CLASS__, 'skip_intake_email' ), 10, 2 );
 		add_filter( 'woocommerce_checkout_get_value', array( __CLASS__, 'prefill_checkout_value' ), 10, 2 );
 		add_filter( 'woocommerce_get_item_data', array( __CLASS__, 'cart_item_details' ), 10, 2 );
 		add_action( 'woocommerce_before_calculate_totals', array( __CLASS__, 'apply_addon_price' ), 20 );
@@ -1527,6 +1702,10 @@ final class AIP_On_Model_Commerce_GitHub {
 		$created_at         = $order->get_date_created() ? $order->get_date_created()->date( DATE_ATOM ) : null;
 		$deliverables       = $order->get_meta( '_aip_deliverables' );
 		$deliverables       = is_array( $deliverables ) ? $deliverables : array();
+		$delivery_brief     = $order->get_meta( '_aip_delivery_brief' );
+		if ( is_array( $delivery_brief ) && ! empty( $delivery_brief ) ) {
+			$deliverables['brief'] = $delivery_brief;
+		}
 		$client_submitted_at = isset( $deliverables['delivered_at'] ) ? $deliverables['delivered_at'] : null;
 		$has_generated_media = ! empty( $deliverables['images'] ) || ! empty( $deliverables['videos'] );
 		$workflow_status     = $client_submitted_at
@@ -1664,7 +1843,7 @@ final class AIP_On_Model_Commerce_GitHub {
 		$order->update_meta_data( '_aip_deliverables', $deliverables );
 		$raw_brief = isset( $json['brief'] ) && is_array( $json['brief'] ) ? $json['brief'] : array();
 		$brief     = array();
-		foreach ( array( 'model_profile', 'scene', 'lighting', 'format', 'transition', 'video_filter', 'pose' ) as $brief_key ) {
+		foreach ( array( 'model_profile', 'scene', 'lighting', 'format', 'transition', 'video_filter', 'pose', 'duration_seconds', 'reference' ) as $brief_key ) {
 			if ( isset( $raw_brief[ $brief_key ] ) && is_scalar( $raw_brief[ $brief_key ] ) ) {
 				$brief[ $brief_key ] = sanitize_text_field( (string) $raw_brief[ $brief_key ] );
 			}
@@ -2207,9 +2386,15 @@ final class AIP_On_Model_Commerce_GitHub {
 			$reference_label = $checkout_asin ? 'ASIN: ' . $checkout_asin : '';
 			wp_add_inline_script( 'jquery', 'window.aipCheckoutFiles=' . wp_json_encode( $files ) . ';', 'after' );
 			wp_add_inline_script( 'jquery', 'window.aipCheckoutReference=' . wp_json_encode( $reference_label ) . ';', 'after' );
+			wp_add_inline_script( 'jquery', 'window.aipCheckoutEmail=' . wp_json_encode( ! empty( $intake['email'] ) ? sanitize_email( $intake['email'] ) : '' ) . ';', 'after' );
 			wp_add_inline_script(
 				'jquery',
 				"(function(){if(window.self!==window.top){document.documentElement.style.setProperty('margin-top','0px','important');var bar=document.getElementById('wpadminbar');if(bar)bar.style.setProperty('display','none','important');}var pending='';function applyEmail(attempt){var input=document.querySelector('input[name=\"contact_email\"],input#email');if(!input){if(attempt<40){window.setTimeout(function(){applyEmail(attempt+1);},150);}return;}if(pending&&input.value!==pending){var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;setter.call(input,pending);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));}}function addUploadPreview(){var files=Array.isArray(window.aipCheckoutFiles)?window.aipCheckoutFiles:[];if(!files.length)return;var hosts=document.querySelectorAll('.woocommerce-checkout-review-order-table .product-name,.wc-block-components-order-summary-item__description');hosts.forEach(function(host){if(host.querySelector('.aip-checkout-upload-preview'))return;var wrap=document.createElement('div');wrap.className='aip-checkout-upload-preview';var title=document.createElement('strong');title.textContent='Your uploaded files ('+files.length+')';wrap.appendChild(title);var grid=document.createElement('div');grid.className='aip-checkout-upload-grid';files.forEach(function(file,index){var link=document.createElement('a');link.className='aip-checkout-upload-card';link.href=String(file.url||'#');if(file.url){link.target='_blank';link.rel='noopener';}var isImage=String(file.type||'').indexOf('image/')===0||/\\.(jpe?g|png|webp)$/i.test(String(file.name||''));if(isImage&&file.url){var image=document.createElement('img');image.src=file.url;image.alt=String(file.name||('Upload '+(index+1)));link.appendChild(image);}else{var icon=document.createElement('div');icon.className='aip-checkout-upload-file';icon.textContent='↥';link.appendChild(icon);}var name=document.createElement('span');name.textContent=String(file.name||('Upload '+(index+1)));link.appendChild(name);grid.appendChild(link);});wrap.appendChild(grid);host.appendChild(wrap);});}function revealCheckoutError(){var error=document.querySelector('.wc-block-components-validation-error,.wc-block-components-notice-banner.is-error,[role=\"alert\"]');if(error){error.scrollIntoView({behavior:'smooth',block:'center'});}}document.addEventListener('click',function(event){if(event.target.closest&&event.target.closest('.wc-block-components-checkout-place-order-button')){window.setTimeout(revealCheckoutError,700);window.setTimeout(revealCheckoutError,1800);}});window.addEventListener('message',function(event){if(event.origin!==window.location.origin||!event.data||event.data.type!=='aipCheckoutEmail'){return;}pending=String(event.data.email||'').trim();if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(pending)){pending='';return;}applyEmail(0);});var observer=new MutationObserver(addUploadPreview);observer.observe(document.documentElement,{childList:true,subtree:true});addUploadPreview();window.setTimeout(addUploadPreview,500);window.setTimeout(addUploadPreview,1500);if(window.parent!==window){window.parent.postMessage({type:'aipCheckoutReady'},window.location.origin);}})();",
+				'after'
+			);
+			wp_add_inline_script(
+				'jquery',
+				"(function(){var email=String(window.aipCheckoutEmail||'').trim();if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email))return;function seed(attempt){var input=document.querySelector('input[name=\"contact_email\"],input#email,input[name=\"billing_email\"]');if(!input){if(attempt<50)window.setTimeout(function(){seed(attempt+1);},150);return;}if(input.value!==email){var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;setter.call(input,email);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));}}seed(0);})();",
 				'after'
 			);
 			wp_add_inline_script(
