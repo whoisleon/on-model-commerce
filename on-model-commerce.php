@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: Direct Stripe ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.60
+ * Version: 0.5.61
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -11,6 +11,108 @@
 defined( 'ABSPATH' ) || exit;
 
 require_once __DIR__ . '/includes/direct-stripe.php';
+
+// REii is one WordPress category presented on its own public hostname. Keep
+// WordPress itself, REST, Admin, uploads, WooCommerce, and webhooks on the
+// canonical Tech by Leon installation; only public REii permalinks move.
+if ( ! function_exists( 'aip_reii_public_origin_v0561' ) ) {
+function aip_reii_public_origin_v0561() {
+	return 'https://reii.techbyleon.com';
+}
+
+function aip_reii_category_id_v0561() {
+	return 9792391;
+}
+
+function aip_reii_is_public_post_v0561( $post ) {
+	$post = get_post( $post );
+	return $post && 'post' === $post->post_type && has_category( aip_reii_category_id_v0561(), $post );
+}
+
+function aip_reii_public_url_v0561( $url ) {
+	$parts = wp_parse_url( $url );
+	if ( ! is_array( $parts ) ) {
+		return $url;
+	}
+	$path     = isset( $parts['path'] ) ? $parts['path'] : '/';
+	$query    = isset( $parts['query'] ) && '' !== $parts['query'] ? '?' . $parts['query'] : '';
+	$fragment = isset( $parts['fragment'] ) && '' !== $parts['fragment'] ? '#' . $parts['fragment'] : '';
+	return aip_reii_public_origin_v0561() . '/' . ltrim( $path, '/' ) . $query . $fragment;
+}
+
+function aip_reii_public_post_link_v0561( $url, $post ) {
+	return aip_reii_is_public_post_v0561( $post ) ? aip_reii_public_url_v0561( $url ) : $url;
+}
+add_filter( 'post_link', 'aip_reii_public_post_link_v0561', 20, 2 );
+
+function aip_reii_public_category_link_v0561( $url, $term_id ) {
+	return aip_reii_category_id_v0561() === (int) $term_id
+		? trailingslashit( aip_reii_public_origin_v0561() )
+		: $url;
+}
+add_filter( 'category_link', 'aip_reii_public_category_link_v0561', 20, 2 );
+
+function aip_reii_public_canonical_v0561( $url ) {
+	if ( is_singular( 'post' ) && aip_reii_is_public_post_v0561( get_queried_object_id() ) ) {
+		return get_permalink( get_queried_object_id() );
+	}
+	return $url;
+}
+add_filter( 'get_canonical_url', 'aip_reii_public_canonical_v0561', 20 );
+add_filter( 'wpseo_canonical', 'aip_reii_public_canonical_v0561', 20 );
+add_filter( 'wpseo_opengraph_url', 'aip_reii_public_canonical_v0561', 20 );
+add_filter( 'rank_math/frontend/canonical', 'aip_reii_public_canonical_v0561', 20 );
+add_filter( 'rank_math/opengraph/facebook/url', 'aip_reii_public_canonical_v0561', 20 );
+
+function aip_reii_allowed_redirect_host_v0561( $hosts ) {
+	$hosts[] = 'reii.techbyleon.com';
+	return array_values( array_unique( $hosts ) );
+}
+add_filter( 'allowed_redirect_hosts', 'aip_reii_allowed_redirect_host_v0561' );
+
+function aip_reii_route_public_posts_v0561() {
+	if (
+		is_admin()
+		|| wp_doing_ajax()
+		|| wp_doing_cron()
+		|| ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+		|| ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST )
+		|| is_preview()
+		|| is_feed()
+	) {
+		return;
+	}
+
+	$host = strtolower( (string) wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) );
+	$host = preg_replace( '/:\d+$/', '', $host );
+	if ( is_category( aip_reii_category_id_v0561() ) ) {
+		wp_safe_redirect( trailingslashit( aip_reii_public_origin_v0561() ), 301, 'REii Commerce' );
+		exit;
+	}
+	if ( ! is_singular( 'post' ) ) {
+		return;
+	}
+
+	$post_id = get_queried_object_id();
+	$is_reii = aip_reii_is_public_post_v0561( $post_id );
+	if ( $is_reii && in_array( $host, array( 'techbyleon.com', 'www.techbyleon.com' ), true ) ) {
+		wp_safe_redirect( get_permalink( $post_id ), 301, 'REii Commerce' );
+		exit;
+	}
+	if ( ! $is_reii && 'reii.techbyleon.com' === $host ) {
+		$request_uri = (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '/' );
+		$path        = wp_parse_url( $request_uri, PHP_URL_PATH );
+		$query       = wp_parse_url( $request_uri, PHP_URL_QUERY );
+		$destination = home_url( $path ? $path : '/' );
+		if ( $query ) {
+			$destination .= '?' . $query;
+		}
+		wp_safe_redirect( $destination, 301, 'REii Commerce' );
+		exit;
+	}
+}
+add_action( 'template_redirect', 'aip_reii_route_public_posts_v0561', 1 );
+}
 
 // Keep the updater outside the legacy plugin class. Some WordPress.com sites
 // still preload an orphaned copy of that class, so class-scoped hooks can be

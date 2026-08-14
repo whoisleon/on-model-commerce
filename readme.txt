@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.60
+Stable tag: 0.5.61
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,10 @@ Customer-facing direct Stripe project intake, production workflow, private deliv
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.61 =
+* Publish REii category post permalinks and canonical metadata on reii.techbyleon.com.
+* Permanently redirect legacy Tech by Leon REii post and category URLs while leaving REST, Admin, uploads, WooCommerce, and Stripe webhooks on the primary WordPress host.
 
 = 0.5.60 =
 * Include the direct Stripe backend in the WordPress release package.
