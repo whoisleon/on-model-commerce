@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.55
+Stable tag: 0.5.56
 License: Proprietary
 
 Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing WooCommerce project intake, production workflow, private deliver
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.56 =
+* Keep native checkout requests on the visible REii domain so browser security does not block the payment handoff.
 
 = 0.5.55 =
 * Replace the returning-customer login prompt with the current guest email and a confirmation-delivery notice.

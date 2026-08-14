@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.55
+ * Version: 0.5.56
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -123,8 +123,11 @@ function aip_reii_checkout_fallback_bridge() {
 	}
 
 	wp_enqueue_script( 'jquery' );
+	$ajax_path = wp_parse_url( admin_url( 'admin-ajax.php' ), PHP_URL_PATH );
 	$config = array(
-		'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+		// Keep the request on the visible host so the REii subdomain carries its
+		// WooCommerce session cookie without triggering a cross-origin fetch.
+		'ajaxUrl'     => $ajax_path ? $ajax_path : '/wp-admin/admin-ajax.php',
 		'checkoutUrl' => add_query_arg( 'aip_embedded', '1', wc_get_checkout_url() ),
 		'nonce'       => wp_create_nonce( 'aip_reii_prepare_checkout' ),
 	);
@@ -454,7 +457,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.55' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.56' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -1309,7 +1312,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.55';
+	const VERSION     = '0.5.56';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
