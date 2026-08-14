@@ -393,18 +393,23 @@
     var previous=document.querySelector('.aip-payment-modal');
     if(previous)previous.remove();
     var modal=document.createElement('div');
-    modal.className='aip-payment-modal is-open is-loaded is-complete';
+    modal.className='aip-payment-modal is-open is-loaded is-complete is-uncode-confirmation';
     modal.setAttribute('role','dialog');
     modal.setAttribute('aria-modal','true');
     modal.setAttribute('aria-labelledby','aip-payment-title');
-    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel"><header class="aip-payment-header"><div class="aip-payment-heading"><span class="aip-payment-brand">REii<i>.</i><small>REIMAGINE</small></span><span class="aip-payment-title"><small>PAYMENT COMPLETE &middot; STEP 3 OF 3</small><strong id="aip-payment-title">Your order is confirmed</strong></span></div><span class="aip-payment-trust">Payment received</span><button class="aip-payment-close" type="button" aria-label="Close order confirmation">&times;</button></header><div class="aip-payment-progress" role="list" aria-label="Checkout progress"><span class="is-complete" role="listitem"><i>&#10003;</i><b>Product</b></span><em></em><span class="is-complete" role="listitem"><i>&#10003;</i><b>Payment</b></span><em></em><span class="is-active" role="listitem" aria-current="step"><i>3</i><b>Confirmation</b></span></div><div class="aip-payment-stage"><div class="aip-stripe-return-card"><i>&#10003;</i><small>ORDER RECEIVED</small><h2>Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to the email used at Stripe Checkout. No account or login is required.</p><button type="button">Return to REii</button></div></div></section>';
+    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker">Order confirmed &middot; 03 of 03</small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to the email used at Stripe Checkout. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Return to REii</button><span>Your project is safely in our creative queue.</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>No portal needed.</strong><br>Everything is delivered to your inbox.</p><span class="aip-confirmation-version">REii Commerce v0.5.63</span></aside></div></section>';
     document.body.appendChild(modal);
     document.body.classList.add('aip-payment-open');
-    var close=function(){modal.remove();document.body.classList.remove('aip-payment-open');var clean=new URL(window.location.href);clean.searchParams.delete('aip_stripe');clean.searchParams.delete('order_id');clean.searchParams.delete('session_id');window.history.replaceState({},'',clean.pathname+clean.search+clean.hash);};
+    var onKeydown;
+    var close=function(){document.removeEventListener('keydown',onKeydown);modal.remove();document.body.classList.remove('aip-payment-open');var clean=new URL(window.location.href);clean.searchParams.delete('aip_stripe');clean.searchParams.delete('order_id');clean.searchParams.delete('session_id');window.history.replaceState({},'',clean.pathname+clean.search+clean.hash);};
     modal.querySelector('.aip-payment-backdrop').addEventListener('click',close);
-    modal.querySelector('.aip-payment-close').addEventListener('click',close);
-    modal.querySelector('.aip-stripe-return-card button').addEventListener('click',close);
-    modal.querySelector('.aip-payment-close').focus();
+    var closeButton=modal.querySelector('.aip-confirmation-close');
+    var returnButton=modal.querySelector('.aip-confirmation-actions button');
+    onKeydown=function(event){if(event.key==='Escape')close();};
+    closeButton.addEventListener('click',close);
+    returnButton.addEventListener('click',close);
+    document.addEventListener('keydown',onKeydown);
+    closeButton.focus();
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){initPortal();initOfferFromUrl();initStripeReturn();});else{initPortal();initOfferFromUrl();initStripeReturn();}

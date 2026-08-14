@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.62
+Stable tag: 0.5.63
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing direct Stripe project intake, production workflow, private deliv
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.63 =
+* Redesign the Stripe payment confirmation as a compact Uncode-inspired editorial card with clear receipt, creation, and private-delivery steps.
 
 = 0.5.62 =
 * Replace the broken WooCommerce email product placeholder with a branded REii video icon.
