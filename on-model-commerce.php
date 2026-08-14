@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: Direct Stripe ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.68
+ * Version: 0.5.69
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -572,7 +572,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.68' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.69' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -1382,8 +1382,11 @@ function aip_reii_register_delivery_surface_v0553() {
 	}
 
 	$actions = array(
-		array( 'woocommerce_email_after_order_table', 'email_delivery_links', 20, 4 ),
+		array( 'woocommerce_email_before_order_table', 'email_delivery_links', 20, 4 ),
+		array( 'woocommerce_email_after_order_table', 'email_create_another_prompt', 20, 4 ),
 		array( 'woocommerce_email_after_order_table', 'email_order_confirmation_message', 15, 4 ),
+		array( 'woocommerce_email_order_details', 'track_email_before', 1, 4 ),
+		array( 'woocommerce_email_footer', 'track_email_after', 999, 1 ),
 		array( 'template_redirect', 'passwordless_delivery_request', 1, 1 ),
 		array( 'add_meta_boxes', 'add_admin_order_meta_boxes', 10, 2 ),
 		array( 'admin_enqueue_scripts', 'admin_order_assets', 10, 1 ),
@@ -1401,6 +1404,11 @@ function aip_reii_register_delivery_surface_v0553() {
 		array( 'woocommerce_email_heading_customer_processing_order', 'custom_processing_email_heading', 10, 2 ),
 		array( 'woocommerce_email_subject_customer_completed_order', 'custom_completed_email_subject', 10, 2 ),
 		array( 'woocommerce_email_heading_customer_completed_order', 'custom_completed_email_heading', 10, 2 ),
+		array( 'woocommerce_get_order_item_totals', 'filter_completed_email_order_item_totals', 20, 3 ),
+		array( 'woocommerce_order_formatted_line_subtotal', 'filter_completed_email_line_subtotal', 20, 3 ),
+		array( 'woocommerce_email_order_items_table', 'filter_completed_email_items_table', 20, 2 ),
+		array( 'woocommerce_email_styles', 'filter_completed_email_styles', 20, 2 ),
+		array( 'wc_get_template', 'filter_completed_email_templates', 20, 5 ),
 		array( 'wpcf7_skip_mail', 'skip_intake_email', PHP_INT_MAX, 2 ),
 		array( 'gettext', 'customize_email_gettext', 20, 3 ),
 	);
@@ -1423,7 +1431,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.68';
+	const VERSION     = '0.5.69';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
@@ -1447,12 +1455,20 @@ final class AIP_On_Model_Commerce_GitHub {
 		add_filter( 'woocommerce_order_item_get_formatted_meta_data', array( __CLASS__, 'filter_order_item_display_meta' ), 10, 2 );
 		add_filter( 'woocommerce_order_item_name', array( __CLASS__, 'add_item_thumbnail_to_confirmation' ), 10, 3 );
 		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'apply_intake_to_order' ), 10, 2 );
-		add_action( 'woocommerce_email_after_order_table', array( __CLASS__, 'email_delivery_links' ), 20, 4 );
+		add_action( 'woocommerce_email_before_order_table', array( __CLASS__, 'email_delivery_links' ), 20, 4 );
+		add_action( 'woocommerce_email_after_order_table', array( __CLASS__, 'email_create_another_prompt' ), 20, 4 );
 		add_action( 'woocommerce_email_after_order_table', array( __CLASS__, 'email_order_confirmation_message' ), 15, 4 );
+		add_action( 'woocommerce_email_order_details', array( __CLASS__, 'track_email_before' ), 1, 4 );
+		add_action( 'woocommerce_email_footer', array( __CLASS__, 'track_email_after' ), 999, 1 );
 		add_filter( 'woocommerce_email_subject_customer_processing_order', array( __CLASS__, 'custom_processing_email_subject' ), 10, 2 );
 		add_filter( 'woocommerce_email_heading_customer_processing_order', array( __CLASS__, 'custom_processing_email_heading' ), 10, 2 );
 		add_filter( 'woocommerce_email_subject_customer_completed_order', array( __CLASS__, 'custom_completed_email_subject' ), 10, 2 );
 		add_filter( 'woocommerce_email_heading_customer_completed_order', array( __CLASS__, 'custom_completed_email_heading' ), 10, 2 );
+		add_filter( 'woocommerce_get_order_item_totals', array( __CLASS__, 'filter_completed_email_order_item_totals' ), 20, 3 );
+		add_filter( 'woocommerce_order_formatted_line_subtotal', array( __CLASS__, 'filter_completed_email_line_subtotal' ), 20, 3 );
+		add_filter( 'woocommerce_email_order_items_table', array( __CLASS__, 'filter_completed_email_items_table' ), 20, 2 );
+		add_filter( 'woocommerce_email_styles', array( __CLASS__, 'filter_completed_email_styles' ), 20, 2 );
+		add_filter( 'wc_get_template', array( __CLASS__, 'filter_completed_email_templates' ), 20, 5 );
 		add_filter( 'gettext', array( __CLASS__, 'customize_email_gettext' ), 20, 3 );
 		add_action( 'template_redirect', array( __CLASS__, 'passwordless_delivery_request' ), 1 );
 		add_action( 'add_meta_boxes', array( __CLASS__, 'add_admin_order_meta_boxes' ), 10, 2 );
@@ -2016,6 +2032,7 @@ final class AIP_On_Model_Commerce_GitHub {
 		if ( 'customer_completed_order' !== $email->id ) {
 			return;
 		}
+		self::$current_rendering_email = $email->id;
 
 		$delivery = $order->get_meta( '_aip_deliverables' );
 		if (
@@ -2039,15 +2056,46 @@ final class AIP_On_Model_Commerce_GitHub {
 		);
 
 		if ( $plain_text ) {
-			echo "\nVIEW AND DOWNLOAD YOUR CONTENT\n" . esc_url_raw( $delivery_url ) . "\n\n";
+			echo "\nYOUR REII CONTENT IS READY\n";
+			echo "Open your private REii library to view and download the AI influencer UGC created for your product (no password required):\n";
+			echo esc_url_raw( $delivery_url ) . "\n\n";
 			return;
 		}
 		?>
-		<div style="margin:32px 0 24px;padding:24px;border:1px solid #ded7e5;border-radius:10px;">
-			<h2 style="margin:0 0 8px;">Your content is ready</h2>
-			<p style="margin:0 0 18px;">Open your private REii library to view and download the AI influencer UGC created for your product. No password is required.</p>
-			<p style="margin:10px 0;">
-				<a href="<?php echo esc_url( $delivery_url ); ?>" style="display:inline-block;background:#6846e6;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:7px;font-weight:700;">View and download your content</a>
+		<div class="aip-email-delivery-card" style="margin:20px 0 28px;padding:24px;border:1px solid #d8cef5;border-radius:12px;background:#fbfaff;">
+			<small style="color:#6846e6;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;display:block;margin-bottom:8px;">Delivered &middot; Private Content Library</small>
+			<h2 style="margin:0 0 8px;font-size:20px;line-height:1.3;color:#1d1827;">Your content is ready</h2>
+			<p style="margin:0 0 18px;font-size:14px;line-height:1.5;color:#554c60;">Open your private REii library to view and download the AI influencer UGC created for your product. No password is required.</p>
+			<p style="margin:10px 0 0;">
+				<a href="<?php echo esc_url( $delivery_url ); ?>" style="display:inline-block;background:#6846e6;color:#ffffff;text-decoration:none;padding:13px 22px;border-radius:8px;font-weight:700;font-size:14px;text-align:center;">View and download your content</a>
+			</p>
+		</div>
+		<?php
+	}
+
+	public static function email_create_another_prompt( $order, $sent_to_admin, $plain_text, $email ) {
+		if ( $sent_to_admin || ! $order instanceof WC_Order || ! $email instanceof WC_Email ) {
+			return;
+		}
+		if ( 'customer_completed_order' !== $email->id ) {
+			return;
+		}
+
+		$reorder_url = home_url( '/style-by-reii/#submit-project' );
+
+		if ( $plain_text ) {
+			echo "\nWANT TO CREATE ANOTHER VIDEO?\n";
+			echo "Reimagine another product or get a fresh AI influencer UGC video in just a few clicks:\n";
+			echo esc_url_raw( $reorder_url ) . "\n\n";
+			return;
+		}
+		?>
+		<div class="aip-email-reorder-card" style="margin:28px 0 16px;padding:24px;border:1px solid #ded7e5;border-radius:12px;background:#f9f8fc;">
+			<small style="color:#6846e6;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;display:block;margin-bottom:8px;">Create with REii</small>
+			<h2 style="margin:0 0 8px;font-size:20px;line-height:1.3;color:#1d1827;">Want to create another video?</h2>
+			<p style="margin:0 0 18px;font-size:14px;line-height:1.5;color:#554c60;">Reimagine another product or order a fresh AI influencer UGC variation in just a few clicks.</p>
+			<p style="margin:10px 0 0;">
+				<a href="<?php echo esc_url( $reorder_url ); ?>" style="display:inline-block;background:#1d1827;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;font-size:14px;text-align:center;">Create another video</a>
 			</p>
 		</div>
 		<?php
@@ -2282,9 +2330,9 @@ final class AIP_On_Model_Commerce_GitHub {
 		header( 'X-Robots-Tag: noindex, nofollow', true );
 		?>
 		<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your REii Content Library</title>
-		<style>:root{--ink:#211b28;--muted:#756d7d;--line:#e8e3eb;--page:#f4f2f6;--purple:#6846e6;--purple-dark:#5634d1;--purple-soft:#f2eeff}*{box-sizing:border-box}body{background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:34px 18px;-webkit-font-smoothing:antialiased}.wrap{margin:0 auto;max-width:1080px}.head{background:#1b1622;border-radius:20px;color:#fff;margin-bottom:22px;padding:34px 38px}.head small{color:#bfa8ff;display:block;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:7px;text-transform:uppercase}.head-row{align-items:end;display:flex;gap:24px;justify-content:space-between}.head h1{font-size:34px;font-weight:800;letter-spacing:-.8px;margin:0 0 5px}.head p{color:#cdc6d5;font-size:14px;margin:0}.library-count{color:#d9d2e2;font-size:12px;font-weight:700;white-space:nowrap}.content{display:grid;gap:20px}.order{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 30px rgba(32,23,42,.05);overflow:hidden}.order-head{align-items:center;border-bottom:1px solid var(--line);display:grid;gap:15px;grid-template-columns:auto 1fr auto;padding:18px 22px}.order-thumb{border-radius:10px;height:68px;object-fit:cover;width:58px}.order-kicker{color:var(--purple);font-size:9px;font-weight:800;letter-spacing:1.3px;margin:0 0 4px;text-transform:uppercase}.order-head h2{font-size:21px;letter-spacing:-.4px;margin:0 0 4px}.order-meta{color:var(--muted);font-size:12px}.delivered-pill{background:#edf9f1;border:1px solid #cdebd7;border-radius:999px;color:#24733f;font-size:10px;font-weight:800;padding:7px 10px;text-transform:uppercase}.order-body{display:grid;gap:26px;grid-template-columns:minmax(0,1fr) 290px;padding:24px}.brief-title{font-size:15px;margin:0 0 15px}.detail-grid{display:grid;gap:15px 20px;grid-template-columns:repeat(2,minmax(0,1fr));margin:0}.detail{border-bottom:1px solid #f0ecf2;padding-bottom:12px}.detail.full{grid-column:1/-1}.detail dt{color:#8a818f;font-size:9px;font-weight:800;letter-spacing:1px;margin-bottom:5px;text-transform:uppercase}.detail dd{color:#2c2532;font-size:13px;font-weight:650;line-height:1.45;margin:0;overflow-wrap:anywhere}.detail dd.request{font-weight:500}.video-stack{display:grid;gap:14px}.video-card{background:#17131d;border-radius:13px;overflow:hidden}.video-card video{aspect-ratio:9/16;background:#17131d;display:block;max-height:390px;object-fit:cover;width:100%}.video-actions{background:#fff;border:1px solid var(--line);border-top:0;padding:14px}.video-actions strong{display:block;font-size:13px;margin-bottom:10px}.button{background:var(--purple);border-radius:9px;color:#fff;display:block;font-size:13px;font-weight:750;padding:11px 14px;text-align:center;text-decoration:none}.button:hover{background:var(--purple-dark)}.upsell{align-items:center;background:var(--purple-soft);border-top:1px solid #dfd5ff;display:grid;gap:20px;grid-template-columns:1fr auto;padding:20px 24px}.upsell small{color:var(--purple);display:block;font-size:9px;font-weight:850;letter-spacing:1.2px;margin-bottom:5px;text-transform:uppercase}.upsell h3{font-size:16px;margin:0 0 4px}.upsell p{color:#665d70;font-size:12px;line-height:1.45;margin:0}.upsell-actions{display:flex;gap:9px}.upsell-link{border:1px solid #cfc2fa;border-radius:8px;color:#5237be;font-size:12px;font-weight:750;padding:10px 13px;text-decoration:none;white-space:nowrap}.upsell-link.primary{background:var(--purple);border-color:var(--purple);color:#fff}.note{color:#7c7384;font-size:12px;margin:4px 0 0;text-align:center}.aip-intake-gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));margin-top:8px}.aip-intake-thumb{background:#fff;border:1px solid #e3dcee;border-radius:10px;display:block;overflow:hidden;text-align:center;text-decoration:none!important;transition:transform .15s ease,box-shadow .15s ease}.aip-intake-thumb:hover{box-shadow:0 4px 14px rgba(104,70,230,.15);transform:translateY(-1px)}.aip-intake-thumb img{aspect-ratio:1;background:#181320;display:block;object-fit:cover;width:100%}.aip-intake-thumb-icon{align-items:center;background:#f3eeff;color:#6846e6;display:flex;font-size:22px;height:84px;justify-content:center}.aip-intake-thumb span{color:#342a3e;display:block;font-size:10px;font-weight:700;overflow:hidden;padding:5px 4px;text-overflow:ellipsis;white-space:nowrap}@media(max-width:760px){body{padding:16px 10px}.head{border-radius:15px;padding:26px 22px}.head-row{align-items:start;flex-direction:column;gap:14px}.head h1{font-size:28px}.order-head{grid-template-columns:auto 1fr;padding:15px}.delivered-pill{display:none}.order-body{grid-template-columns:1fr;padding:18px}.detail-grid{grid-template-columns:1fr}.detail.full{grid-column:auto}.video-card video{max-height:520px}.upsell{grid-template-columns:1fr;padding:18px}.upsell-actions{flex-direction:column}.upsell-link{text-align:center}}</style></head><body><main class="wrap"><header class="head"><small>TECH BY LEON</small><div class="head-row"><div><h1>Your video library</h1><p>Every finished product video, request brief, and download in one place.</p></div><span class="library-count"><?php echo esc_html( count( $customer_orders ) ); ?> completed order<?php echo 1 === count( $customer_orders ) ? '' : 's'; ?> · <?php echo esc_html( $total_videos ); ?> video<?php echo 1 === $total_videos ? '' : 's'; ?></span></div></header><section class="content">
+		<style>:root{--ink:#211b28;--muted:#756d7d;--line:#e8e3eb;--page:#f4f2f6;--purple:#6846e6;--purple-dark:#5634d1;--purple-soft:#f2eeff}*{box-sizing:border-box}body{background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:34px 18px;-webkit-font-smoothing:antialiased}.wrap{margin:0 auto;max-width:1080px}.head{background:#1b1622;border-radius:20px;color:#fff;margin-bottom:22px;padding:34px 38px}.head small{color:#bfa8ff;display:block;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:7px;text-transform:uppercase}.head-row{align-items:end;display:flex;gap:24px;justify-content:space-between}.head h1{font-size:34px;font-weight:800;letter-spacing:-.8px;margin:0 0 5px}.head p{color:#cdc6d5;font-size:14px;margin:0}.library-count{color:#d9d2e2;font-size:12px;font-weight:700;white-space:nowrap}.content{display:grid;gap:20px}.order{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 30px rgba(32,23,42,.05);overflow:hidden}.order-head{align-items:center;border-bottom:1px solid var(--line);display:grid;gap:15px;grid-template-columns:auto 1fr auto;padding:18px 22px}.order-thumb{border-radius:10px;height:68px;object-fit:cover;width:58px}.order-kicker{color:var(--purple);font-size:9px;font-weight:800;letter-spacing:1.3px;margin:0 0 4px;text-transform:uppercase}.order-head h2{font-size:21px;letter-spacing:-.4px;margin:0 0 4px}.order-meta{color:var(--muted);font-size:12px}.delivered-pill{background:#edf9f1;border:1px solid #cdebd7;border-radius:999px;color:#24733f;font-size:10px;font-weight:800;padding:7px 10px;text-transform:uppercase}.order-body{display:grid;gap:26px;grid-template-columns:minmax(0,1fr) 290px;padding:24px}.brief-title{font-size:15px;margin:0 0 15px}.detail-grid{display:grid;gap:15px 20px;grid-template-columns:repeat(2,minmax(0,1fr));margin:0}.detail{border-bottom:1px solid #f0ecf2;padding-bottom:12px}.detail.full{grid-column:1/-1}.detail dt{color:#8a818f;font-size:9px;font-weight:800;letter-spacing:1px;margin-bottom:5px;text-transform:uppercase}.detail dd{color:#2c2532;font-size:13px;font-weight:650;line-height:1.45;margin:0;overflow-wrap:anywhere}.detail dd.request{font-weight:500}.video-stack{align-self:start;display:grid;gap:14px}.video-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.04);display:flex;flex-direction:column;overflow:hidden}.video-card video{aspect-ratio:9/16;background:#000;display:block;height:auto;max-height:none;object-fit:contain;width:100%}.video-actions{background:#fff;border:0;border-top:1px solid var(--line);padding:14px}.video-actions strong{display:block;font-size:13px;margin-bottom:10px}.button{background:var(--purple);border-radius:9px;color:#fff;display:block;font-size:13px;font-weight:750;padding:11px 14px;text-align:center;text-decoration:none}.button:hover{background:var(--purple-dark)}.upsell{align-items:center;background:var(--purple-soft);border-top:1px solid #dfd5ff;display:grid;gap:20px;grid-template-columns:1fr auto;padding:20px 24px}.upsell small{color:var(--purple);display:block;font-size:9px;font-weight:850;letter-spacing:1.2px;margin-bottom:5px;text-transform:uppercase}.upsell h3{font-size:16px;margin:0 0 4px}.upsell p{color:#665d70;font-size:12px;line-height:1.45;margin:0}.upsell-actions{display:flex;gap:9px}.upsell-link{border:1px solid #cfc2fa;border-radius:8px;color:#5237be;font-size:12px;font-weight:750;padding:10px 13px;text-decoration:none;white-space:nowrap}.upsell-link.primary{background:var(--purple);border-color:var(--purple);color:#fff}.note{color:#7c7384;font-size:12px;margin:4px 0 0;text-align:center}.aip-intake-gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));margin-top:8px}.aip-intake-thumb{background:#fff;border:1px solid #e3dcee;border-radius:10px;display:block;overflow:hidden;text-align:center;text-decoration:none!important;transition:transform .15s ease,box-shadow .15s ease}.aip-intake-thumb:hover{box-shadow:0 4px 14px rgba(104,70,230,.15);transform:translateY(-1px)}.aip-intake-thumb img{aspect-ratio:1;background:#fff;display:block;object-fit:cover;width:100%}.aip-intake-thumb-icon{align-items:center;background:#f3eeff;color:#6846e6;display:flex;font-size:22px;height:84px;justify-content:center}.aip-intake-thumb span{color:#342a3e;display:block;font-size:10px;font-weight:700;overflow:hidden;padding:5px 4px;text-overflow:ellipsis;white-space:nowrap}@media(max-width:760px){body{padding:16px 10px}.head{border-radius:15px;padding:26px 22px}.head-row{align-items:start;flex-direction:column;gap:14px}.head h1{font-size:28px}.order-head{grid-template-columns:auto 1fr;padding:15px}.delivered-pill{display:none}.order-body{grid-template-columns:1fr;padding:18px}.detail-grid{grid-template-columns:1fr}.detail.full{grid-column:auto}.video-card video{aspect-ratio:9/16;height:auto;max-height:none;object-fit:contain;width:100%}.upsell{grid-template-columns:1fr;padding:18px}.upsell-actions{flex-direction:column}.upsell-link{text-align:center}}</style></head><body><main class="wrap"><header class="head"><small>TECH BY LEON</small><div class="head-row"><div><h1>Your video library</h1><p>Every finished product video, request brief, and download in one place.</p></div><span class="library-count"><?php echo esc_html( count( $customer_orders ) ); ?> completed order<?php echo 1 === count( $customer_orders ) ? '' : 's'; ?> · <?php echo esc_html( $total_videos ); ?> video<?php echo 1 === $total_videos ? '' : 's'; ?></span></div></header><section class="content">
 		<style>
-		.head{display:none}.reii-library-head{background:#1b1622;border-radius:20px;color:#fff;margin-bottom:22px;padding:34px 38px}.reii-library-head small{color:#bfa8ff;display:block;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:7px;text-transform:uppercase}.reii-library-head-row{align-items:end;display:flex;gap:24px;justify-content:space-between}.reii-library-head h1{font-size:34px;font-weight:800;letter-spacing:-.8px;margin:0 0 5px}.reii-library-head p{color:#cdc6d5;font-size:14px;margin:0}.upsell{display:none}.delivery-addons{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 30px rgba(32,23,42,.05);margin-top:2px;overflow:hidden}.delivery-addons-head{padding:25px 26px 18px}.delivery-addons-head small{color:var(--purple);display:block;font-size:9px;font-weight:850;letter-spacing:1.2px;margin-bottom:7px;text-transform:uppercase}.delivery-addons-head h2{font-size:25px;letter-spacing:-.5px;margin:0 0 6px}.delivery-addons-head p{color:var(--muted);font-size:13px;margin:0}.delivery-addon-list{border-top:1px solid var(--line)}.delivery-addon{align-items:center;border-bottom:1px solid var(--line);color:var(--ink);display:grid;gap:16px;grid-template-columns:1fr auto auto;min-height:76px;padding:12px 26px;text-decoration:none}.delivery-addon:last-child{border-bottom:0}.delivery-addon:hover{background:var(--purple-soft)}.delivery-addon strong,.delivery-addon span{display:block}.delivery-addon strong{font-size:14px}.delivery-addon span{color:var(--muted);font-size:11px;margin-top:3px}.delivery-addon b{color:var(--purple);font-size:13px}.delivery-addon i{align-items:center;border:1px solid var(--purple);border-radius:50%;color:var(--purple);display:flex;font-size:18px;font-style:normal;height:34px;justify-content:center;width:34px}@media(max-width:760px){.reii-library-head{border-radius:15px;padding:26px 22px}.reii-library-head-row{align-items:start;flex-direction:column;gap:14px}.reii-library-head h1{font-size:28px}.delivery-addon{grid-template-columns:1fr auto auto;padding:12px 18px}}
+		.head{display:none}.reii-library-head{background:#1b1622;border-radius:20px;color:#fff;margin-bottom:22px;padding:34px 38px}.reii-library-head small{color:#bfa8ff;display:block;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:7px;text-transform:uppercase}.reii-library-head-row{align-items:end;display:flex;gap:24px;justify-content:space-between}.reii-library-head h1{font-size:34px;font-weight:800;letter-spacing:-.8px;margin:0 0 5px}.reii-library-head p{color:#cdc6d5;font-size:14px;margin:0}.upsell{display:none}.delivery-reorder-wrap{display:flex;justify-content:center;margin:18px 0 10px}.delivery-reorder-button{background:var(--purple);border-radius:10px;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:750;padding:14px 34px;text-align:center;text-decoration:none;transition:background .15s ease,transform .15s ease;white-space:nowrap}.delivery-reorder-button:hover{background:var(--purple-dark);transform:translateY(-1px)}@media(max-width:760px){.reii-library-head{border-radius:15px;padding:26px 22px}.reii-library-head-row{align-items:start;flex-direction:column;gap:14px}.reii-library-head h1{font-size:28px}.delivery-reorder-wrap{margin:14px 0 8px}.delivery-reorder-button{display:flex;width:100%;padding:13px 20px}}
 		</style>
 		<header class="reii-library-head"><small>REIMAGINE · REii AI INFLUENCER</small><div class="reii-library-head-row"><div><h1>Your REii content library</h1><p>Every finished AI influencer UGC video, creative brief, and download in one private place.</p></div><span class="library-count"><?php echo esc_html( count( $customer_orders ) ); ?> completed order<?php echo 1 === count( $customer_orders ) ? '' : 's'; ?> · <?php echo esc_html( $total_videos ); ?> video<?php echo 1 === $total_videos ? '' : 's'; ?></span></div></header>
 		<?php foreach ( $customer_orders as $customer_order ) :
@@ -2298,23 +2346,10 @@ final class AIP_On_Model_Commerce_GitHub {
 			$variation_url = add_query_arg( array( 'aip_offer' => 'new-version', 'source_order' => $customer_order->get_id() ), home_url( '/style-by-reii/' ) ) . '#submit-project';
 			$new_product_url = add_query_arg( array( 'aip_offer' => 'new-product', 'source_order' => $customer_order->get_id() ), home_url( '/style-by-reii/' ) ) . '#submit-project';
 		?>
-		<article class="order"><header class="order-head"><?php if ( $poster_url ) : ?><img class="order-thumb" src="<?php echo esc_url( $poster_url ); ?>" alt="Order thumbnail"><?php endif; ?><div><p class="order-kicker">Completed content</p><h2>Order #<?php echo esc_html( $customer_order->get_order_number() ); ?></h2><span class="order-meta"><?php echo esc_html( wc_format_datetime( $customer_order->get_date_created() ) ); ?> · <?php echo wp_kses_post( $customer_order->get_formatted_order_total() ); ?></span></div><span class="delivered-pill">Delivered</span></header><div class="order-body"><section><h3 class="brief-title">What you requested</h3><dl class="detail-grid"><div class="detail"><dt>Package</dt><dd><?php echo esc_html( $details['package'] ?: 'On-Model Content Package' ); ?></dd></div><div class="detail"><dt>Product source</dt><dd><?php echo esc_html( $details['source'] ); ?></dd></div><?php if ( $details['reference'] ) : $ref_asin = self::extract_asin( $details['reference'] ); $ref_label = $ref_asin ? 'ASIN: ' . $ref_asin : self::format_reference_for_display( $details['reference'] ); $amazon_url = $ref_asin ? "https://www.amazon.com/dp/{$ref_asin}" : ( preg_match( '/^https?:\/\//i', $details['reference'] ) ? $details['reference'] : '' ); $product_img = $ref_asin ? "https://images-na.ssl-images-amazon.com/images/P/{$ref_asin}.01.MAIN._AC_SY300_.jpg" : ( ! empty( $details['uploaded_file_objects'] ) ? ( $details['uploaded_file_objects'][0]['url'] ?? '' ) : '' ); ?><div class="detail full"><dt>Amazon link / ASIN</dt><dd style="display:flex; align-items:center; gap:14px; margin-top:6px;"><?php if ( $product_img ) : ?><a href="<?php echo esc_url( $amazon_url ?: '#' ); ?>" <?php if ( $amazon_url ) echo 'target="_blank" rel="noopener"'; ?> style="display:block; flex-shrink:0;"><img src="<?php echo esc_url( $product_img ); ?>" alt="Product thumbnail" style="width:58px; height:70px; object-fit:cover; border-radius:8px; border:1px solid #e3dcee; background:#181320; display:block;" onerror="this.style.display='none'"></a><?php endif; ?><div><strong style="font-size:14px; color:#211b28; display:block; font-family:monospace,sans-serif; font-weight:750;"><?php echo esc_html( $ref_label ); ?></strong><?php if ( $amazon_url ) : ?><a href="<?php echo esc_url( $amazon_url ); ?>" target="_blank" rel="noopener" style="color:#6846e6; font-size:12px; font-weight:750; text-decoration:none; display:inline-block; margin-top:3px;">View on Amazon ↗</a><?php endif; ?></div></dd></div><?php endif; ?><?php if ( ! empty( $details['uploaded_file_objects'] ) || $details['uploaded_files'] ) : ?><div class="detail full"><dt>Uploaded product files</dt><dd><?php if ( ! empty( $details['uploaded_file_objects'] ) ) : ?><div class="aip-intake-gallery"><?php foreach ( $details['uploaded_file_objects'] as $u_file ) : $f_url = is_array( $u_file ) ? ( $u_file['url'] ?? '' ) : ( is_string( $u_file ) ? $u_file : '' ); $f_name = is_array( $u_file ) ? ( $u_file['name'] ?? 'Uploaded file' ) : (string) $u_file; $is_img = $f_url && ( preg_match( '/\.(jpg|jpeg|png|webp|gif|svg)$/i', $f_url ) || strpos( $f_url, 'data:image' ) === 0 ); ?><a href="<?php echo esc_url( $f_url ?: '#' ); ?>" <?php if ( $f_url ) echo 'target="_blank" rel="noopener"'; ?> class="aip-intake-thumb" title="<?php echo esc_attr( $f_name ); ?>"><?php if ( $is_img ) : ?><img src="<?php echo esc_url( $f_url ); ?>" alt="<?php echo esc_attr( $f_name ); ?>"><?php else : ?><div class="aip-intake-thumb-icon">📄</div><?php endif; ?><span><?php echo esc_html( $f_name ); ?></span></a><?php endforeach; ?></div><?php else : ?><?php echo esc_html( $details['uploaded_files'] ); ?><?php endif; ?></dd></div><?php endif; ?><div class="detail full"><dt>Your instructions</dt><dd class="request"><?php echo esc_html( $details['instructions'] ?: 'No additional instructions were provided.' ); ?></dd></div><?php foreach ( $details['production'] as $production_detail ) : ?><div class="detail"><dt><?php echo esc_html( $production_detail['label'] ); ?></dt><dd><?php echo esc_html( $production_detail['value'] ); ?></dd></div><?php endforeach; ?></dl></section><aside class="video-stack"><?php foreach ( $files as $key => $file ) : if ( 'video' !== $file['type'] ) continue; ?><section class="video-card"><video controls playsinline preload="metadata"<?php if ( $poster_url ) echo ' poster="' . esc_url( $poster_url ) . '"'; ?> src="<?php echo esc_url( self::tracked_file_url( $customer_order, $key, 'preview' ) ); ?>"></video><div class="video-actions"><strong><?php echo esc_html( $file['label'] ); ?></strong><a class="button" href="<?php echo esc_url( self::tracked_file_url( $customer_order, $key ) ); ?>">Download HD video</a></div></section><?php endforeach; ?></aside></div><footer class="upsell"><div><small>Make more from this product</small><h3>Turn this order into your next piece of content</h3><p>Request another hook, scene, or video cut—or start fresh with a new product.</p></div><div class="upsell-actions"><a class="upsell-link" href="<?php echo esc_url( $variation_url ); ?>">Create another version</a><a class="upsell-link primary" href="<?php echo esc_url( $new_product_url ); ?>">Start a new product</a></div></footer></article><?php endforeach; ?>
-		<section class="delivery-addons"><header class="delivery-addons-head"><small>REIMAGINE WHAT COMES NEXT</small><h2>Create your next REii video</h2><p>Build another AI influencer UGC variation without starting from scratch.</p></header><div class="delivery-addon-list">
-		<?php
-		$delivery_addons = self::addon_catalog();
-		$delivery_addon_descriptions = array(
-			'extra-environment'  => 'A new location, new feel. Same product.',
-			'another-version'    => 'Another pose or cut with the same setup.',
-			'20-second-story'    => 'Extend your feature to a 20-second vertical video.',
-			'alternate-lighting' => 'Different lighting to match your brand.',
-			'priority-delivery'  => 'Get the next version faster with priority turnaround.',
-		);
-		foreach ( $delivery_addons as $addon_slug => $addon ) :
-			$addon_url = add_query_arg( array( 'aip_offer' => $addon_slug, 'source_order' => $order->get_id() ), home_url( '/style-by-reii/' ) ) . '#submit-project';
-		?>
-		<a class="delivery-addon" href="<?php echo esc_url( $addon_url ); ?>"><span><strong><?php echo esc_html( $addon['label'] ); ?></strong><span><?php echo esc_html( $delivery_addon_descriptions[ $addon_slug ] ); ?></span></span><b>+$<?php echo esc_html( $addon['price'] ); ?></b><i aria-hidden="true">+</i></a>
-		<?php endforeach; ?>
-		</div></section>
+		<article class="order"><header class="order-head"><?php if ( $poster_url ) : ?><img class="order-thumb" src="<?php echo esc_url( $poster_url ); ?>" alt="Order thumbnail"><?php endif; ?><div><p class="order-kicker">Completed content</p><h2>Order #<?php echo esc_html( $customer_order->get_order_number() ); ?></h2><span class="order-meta"><?php echo esc_html( wc_format_datetime( $customer_order->get_date_created() ) ); ?> · <?php echo wp_kses_post( $customer_order->get_formatted_order_total() ); ?></span></div><span class="delivered-pill">Delivered</span></header><div class="order-body"><section><h3 class="brief-title">What you requested</h3><dl class="detail-grid"><div class="detail"><dt>Package</dt><dd><?php echo esc_html( $details['package'] ?: 'On-Model Content Package' ); ?></dd></div><div class="detail"><dt>Product source</dt><dd><?php echo esc_html( $details['source'] ); ?></dd></div><?php if ( $details['reference'] ) : $ref_asin = self::extract_asin( $details['reference'] ); $ref_label = $ref_asin ? 'ASIN: ' . $ref_asin : self::format_reference_for_display( $details['reference'] ); $amazon_url = $ref_asin ? "https://www.amazon.com/dp/{$ref_asin}" : ( preg_match( '/^https?:\/\//i', $details['reference'] ) ? $details['reference'] : '' ); $product_img = $ref_asin ? "https://images-na.ssl-images-amazon.com/images/P/{$ref_asin}.01.MAIN._AC_SY300_.jpg" : ( ! empty( $details['uploaded_file_objects'] ) ? ( $details['uploaded_file_objects'][0]['url'] ?? '' ) : '' ); ?><div class="detail full"><dt>Amazon link / ASIN</dt><dd style="display:flex; align-items:center; gap:14px; margin-top:6px;"><?php if ( $product_img ) : ?><a href="<?php echo esc_url( $amazon_url ?: '#' ); ?>" <?php if ( $amazon_url ) echo 'target="_blank" rel="noopener"'; ?> style="display:block; flex-shrink:0;"><img src="<?php echo esc_url( $product_img ); ?>" alt="Product thumbnail" style="width:58px; height:70px; object-fit:contain; border-radius:8px; border:1px solid #e3dcee; background:#ffffff; display:block;" onload="if(this.naturalWidth<=1&&this.naturalHeight<=1){this.style.display='none';if(this.parentElement)this.parentElement.style.display='none';}" onerror="this.style.display='none';if(this.parentElement)this.parentElement.style.display='none';"></a><?php endif; ?><div><strong style="font-size:14px; color:#211b28; display:block; font-family:monospace,sans-serif; font-weight:750;"><?php echo esc_html( $ref_label ); ?></strong><?php if ( $amazon_url ) : ?><a href="<?php echo esc_url( $amazon_url ); ?>" target="_blank" rel="noopener" style="color:#6846e6; font-size:12px; font-weight:750; text-decoration:none; display:inline-block; margin-top:3px;">View on Amazon ↗</a><?php endif; ?></div></dd></div><?php endif; ?><?php if ( ! empty( $details['uploaded_file_objects'] ) || $details['uploaded_files'] ) : ?><div class="detail full"><dt>Uploaded product files</dt><dd><?php if ( ! empty( $details['uploaded_file_objects'] ) ) : ?><div class="aip-intake-gallery"><?php foreach ( $details['uploaded_file_objects'] as $u_file ) : $f_url = is_array( $u_file ) ? ( $u_file['url'] ?? '' ) : ( is_string( $u_file ) ? $u_file : '' ); $f_name = is_array( $u_file ) ? ( $u_file['name'] ?? 'Uploaded file' ) : (string) $u_file; $is_img = $f_url && ( preg_match( '/\.(jpg|jpeg|png|webp|gif|svg)$/i', $f_url ) || strpos( $f_url, 'data:image' ) === 0 ); ?><a href="<?php echo esc_url( $f_url ?: '#' ); ?>" <?php if ( $f_url ) echo 'target="_blank" rel="noopener"'; ?> class="aip-intake-thumb" title="<?php echo esc_attr( $f_name ); ?>"><?php if ( $is_img ) : ?><img src="<?php echo esc_url( $f_url ); ?>" alt="<?php echo esc_attr( $f_name ); ?>"><?php else : ?><div class="aip-intake-thumb-icon">📄</div><?php endif; ?><span><?php echo esc_html( $f_name ); ?></span></a><?php endforeach; ?></div><?php else : ?><?php echo esc_html( $details['uploaded_files'] ); ?><?php endif; ?></dd></div><?php endif; ?><div class="detail full"><dt>Your instructions</dt><dd class="request"><?php echo esc_html( $details['instructions'] ?: 'No additional instructions were provided.' ); ?></dd></div><?php foreach ( $details['production'] as $production_detail ) : ?><div class="detail"><dt><?php echo esc_html( $production_detail['label'] ); ?></dt><dd><?php echo esc_html( $production_detail['value'] ); ?></dd></div><?php endforeach; ?></dl></section><aside class="video-stack"><?php foreach ( $files as $key => $file ) : if ( 'video' !== $file['type'] ) continue; ?><section class="video-card"><video controls playsinline preload="metadata"<?php if ( $poster_url ) echo ' poster="' . esc_url( $poster_url ) . '"'; ?> src="<?php echo esc_url( self::tracked_file_url( $customer_order, $key, 'preview' ) ); ?>"></video><div class="video-actions"><strong><?php echo esc_html( $file['label'] ); ?></strong><a class="button" href="<?php echo esc_url( self::tracked_file_url( $customer_order, $key ) ); ?>">Download HD video</a></div></section><?php endforeach; ?></aside></div><footer class="upsell"><div><small>Make more from this product</small><h3>Turn this order into your next piece of content</h3><p>Request another hook, scene, or video cut—or start fresh with a new product.</p></div><div class="upsell-actions"><a class="upsell-link" href="<?php echo esc_url( $variation_url ); ?>">Create another version</a><a class="upsell-link primary" href="<?php echo esc_url( $new_product_url ); ?>">Start a new product</a></div></footer></article><?php endforeach; ?>
+		<div class="delivery-reorder-wrap">
+			<a class="delivery-reorder-button" href="<?php echo esc_url( home_url( '/style-by-reii/#submit-project' ) ); ?>">Create another video</a>
+		</div>
 		<p class="note">This private link stays available whenever you need to download your finished REii content again.</p></section></main></body></html>
 		<?php
 		exit;
@@ -2770,6 +2805,87 @@ final class AIP_On_Model_Commerce_GitHub {
 			<p style="margin:0;">REii will creatively direct, render, and quality-check your AI influencer UGC video. We’ll email your private content-library link when it is ready.</p>
 		</div>
 		<?php
+	}
+
+	private static $current_rendering_email = null;
+
+	public static function track_email_before( $order, $sent_to_admin = false, $plain_text = false, $email = null ) {
+		if ( $email instanceof WC_Email ) {
+			self::$current_rendering_email = $email->id;
+		}
+	}
+
+	public static function track_email_after( $email = null ) {
+		self::$current_rendering_email = null;
+	}
+
+	private static function is_completed_email_rendering( $order = null ) {
+		if ( 'customer_completed_order' === self::$current_rendering_email ) {
+			return true;
+		}
+		if ( $order instanceof WC_Order && 'completed' === $order->get_status() ) {
+			$delivery = $order->get_meta( '_aip_deliverables' );
+			if ( is_array( $delivery ) && ! empty( $delivery['delivered_at'] ) && ( ! empty( $delivery['images'] ) || ! empty( $delivery['videos'] ) ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public static function filter_completed_email_order_item_totals( $total_rows, $order, $tax_display = '' ) {
+		if ( self::is_completed_email_rendering( $order ) ) {
+			return array();
+		}
+		return $total_rows;
+	}
+
+	public static function filter_completed_email_line_subtotal( $subtotal, $item, $order = null ) {
+		if ( self::is_completed_email_rendering( $order ) ) {
+			return '';
+		}
+		return $subtotal;
+	}
+
+	public static function filter_completed_email_items_table( $table_html, $order ) {
+		if ( self::is_completed_email_rendering( $order ) ) {
+			$table_html = preg_replace( '/<td class="td"[^>]*>\s*<\/td>/i', '', $table_html );
+		}
+		return $table_html;
+	}
+
+	public static function filter_completed_email_templates( $located, $template_name, $args, $template_path, $default_path ) {
+		$email = isset( $args['email'] ) ? $args['email'] : null;
+		$email_id = ( $email instanceof WC_Email ) ? $email->id : ( is_string( self::$current_rendering_email ) ? self::$current_rendering_email : '' );
+		if ( 'customer_completed_order' === $email_id && ( 'emails/email-addresses.php' === $template_name || 'emails/plain/email-addresses.php' === $template_name ) ) {
+			$empty = __DIR__ . '/includes/empty-template.php';
+			if ( file_exists( $empty ) ) {
+				return $empty;
+			}
+		}
+		return $located;
+	}
+
+	public static function filter_completed_email_styles( $css, $email = null ) {
+		$email_id = ( $email instanceof WC_Email ) ? $email->id : ( is_string( self::$current_rendering_email ) ? self::$current_rendering_email : '' );
+		if ( 'customer_completed_order' === $email_id ) {
+			$css .= '
+			table.td th:last-child,
+			table.td td:last-child {
+				display: none !important;
+				width: 0 !important;
+				max-width: 0 !important;
+				padding: 0 !important;
+				font-size: 0 !important;
+				line-height: 0 !important;
+				border: 0 !important;
+				visibility: hidden !important;
+			}
+			#addresses {
+				display: none !important;
+			}
+			';
+		}
+		return $css;
 	}
 
 	public static function custom_completed_email_heading( $heading, $order ) {
