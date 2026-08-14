@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: WooCommerce ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.57
+ * Version: 0.5.58
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -468,7 +468,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.57' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.58' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -477,8 +477,36 @@ function aip_reii_disable_embedded_checkout_login_reminder_v0555( $value ) {
 	return aip_reii_has_service_checkout_context() ? 'no' : $value;
 }
 
+function aip_reii_enable_guest_checkout_v0558( $value ) {
+	return aip_reii_has_service_checkout_context() ? 'yes' : $value;
+}
+
+function aip_reii_disable_checkout_registration_v0558( $value ) {
+	return aip_reii_has_service_checkout_context() ? 'no' : $value;
+}
+
+function aip_reii_registration_not_required_v0558( $required ) {
+	return aip_reii_has_service_checkout_context() ? false : $required;
+}
+
+function aip_reii_registration_not_enabled_v0558( $enabled ) {
+	return aip_reii_has_service_checkout_context() ? false : $enabled;
+}
+
+function aip_reii_force_guest_posted_checkout_v0558( $data ) {
+	if ( aip_reii_has_service_checkout_context() && is_array( $data ) ) {
+		$data['createaccount'] = 0;
+	}
+	return $data;
+}
+
 add_filter( 'body_class', 'aip_reii_embedded_body_class', 999 );
 add_filter( 'option_woocommerce_enable_checkout_login_reminder', 'aip_reii_disable_embedded_checkout_login_reminder_v0555', 999 );
+add_filter( 'option_woocommerce_enable_guest_checkout', 'aip_reii_enable_guest_checkout_v0558', 999 );
+add_filter( 'option_woocommerce_enable_signup_and_login_from_checkout', 'aip_reii_disable_checkout_registration_v0558', 999 );
+add_filter( 'woocommerce_checkout_registration_required', 'aip_reii_registration_not_required_v0558', 999 );
+add_filter( 'woocommerce_checkout_registration_enabled', 'aip_reii_registration_not_enabled_v0558', 999 );
+add_filter( 'woocommerce_checkout_posted_data', 'aip_reii_force_guest_posted_checkout_v0558', 999 );
 add_action( 'wp', 'aip_reii_seed_checkout_country', 1 );
 add_filter( 'woocommerce_default_address_fields', 'aip_reii_embedded_default_fields', 999 );
 add_filter( 'woocommerce_billing_fields', 'aip_reii_embedded_billing_fields', 999 );
@@ -1323,7 +1351,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.57';
+	const VERSION     = '0.5.58';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
