@@ -282,6 +282,15 @@ function aip_reii_stripe_webhook_v0559( $request ) {
 function aip_reii_register_stripe_webhook_v0559() {
 	register_rest_route(
 		'aip/v1',
+		'/stripe-confirmation',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => 'aip_reii_stripe_confirmation_v0564',
+			'permission_callback' => '__return_true',
+		)
+	);
+	register_rest_route(
+		'aip/v1',
 		'/stripe-webhook',
 		array(
 			'methods'             => WP_REST_Server::CREATABLE,
@@ -291,6 +300,47 @@ function aip_reii_register_stripe_webhook_v0559() {
 	);
 }
 add_action( 'rest_api_init', 'aip_reii_register_stripe_webhook_v0559' );
+
+/**
+ * Return the checkout email only when the order and unguessable Stripe Session
+ * ID match and Stripe confirms that the session was paid.
+ */
+function aip_reii_stripe_confirmation_v0564( $request ) {
+	$order_id  = absint( $request->get_param( 'order_id' ) );
+	$session_id = sanitize_text_field( (string) $request->get_param( 'session_id' ) );
+	if ( ! $order_id || ! preg_match( '/^cs_(?:test_|live_)?[A-Za-z0-9]+$/', $session_id ) ) {
+		return new WP_Error( 'aip_stripe_confirmation_invalid', 'Invalid confirmation details.', array( 'status' => 400 ) );
+	}
+
+	$order = wc_get_order( $order_id );
+	if ( ! $order || 'yes' !== $order->get_meta( '_aip_stripe_checkout_direct' ) ) {
+		return new WP_Error( 'aip_stripe_confirmation_missing', 'REii order not found.', array( 'status' => 404 ) );
+	}
+	if ( ! hash_equals( (string) $order->get_meta( '_aip_stripe_session_id' ), $session_id ) ) {
+		return new WP_Error( 'aip_stripe_confirmation_mismatch', 'Confirmation details do not match.', array( 'status' => 404 ) );
+	}
+
+	$session = aip_reii_stripe_api_request_v0559( 'GET', 'checkout/sessions/' . rawurlencode( $session_id ) );
+	if ( is_wp_error( $session ) ) {
+		return new WP_Error( 'aip_stripe_confirmation_unavailable', 'Confirmation is temporarily unavailable.', array( 'status' => 502 ) );
+	}
+	$session_order_id = absint( $session['client_reference_id'] ?? ( $session['metadata']['reii_order_id'] ?? 0 ) );
+	if ( $order_id !== $session_order_id || 'paid' !== ( $session['payment_status'] ?? '' ) ) {
+		return new WP_Error( 'aip_stripe_confirmation_unverified', 'Payment is not verified.', array( 'status' => 409 ) );
+	}
+
+	$email = sanitize_email( $session['customer_details']['email'] ?? ( $session['customer_email'] ?? '' ) );
+	if ( ! $email || ! is_email( $email ) ) {
+		$email = sanitize_email( $order->get_meta( '_aip_intake_email' ) ?: $order->get_billing_email() );
+	}
+	if ( ! $email || ! is_email( $email ) ) {
+		return new WP_Error( 'aip_stripe_confirmation_email_missing', 'Confirmation email is unavailable.', array( 'status' => 404 ) );
+	}
+
+	$response = rest_ensure_response( array( 'email' => $email ) );
+	$response->header( 'Cache-Control', 'no-store, private' );
+	return $response;
+}
 
 /**
  * Replace WooCommerce's generic or broken product placeholder in transactional
@@ -305,7 +355,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.63',
+		'0.5.64',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
