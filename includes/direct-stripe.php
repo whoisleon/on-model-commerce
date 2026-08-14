@@ -291,3 +291,28 @@ function aip_reii_register_stripe_webhook_v0559() {
 	);
 }
 add_action( 'rest_api_init', 'aip_reii_register_stripe_webhook_v0559' );
+
+/**
+ * Replace WooCommerce's generic or broken product placeholder in transactional
+ * emails with a small, remotely loadable REii video-service icon.
+ */
+function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
+	$product = is_object( $item ) && is_callable( array( $item, 'get_product' ) ) ? $item->get_product() : false;
+	if ( ! $product || ! is_callable( array( $product, 'get_sku' ) ) || 'on-model-content-order' !== $product->get_sku() ) {
+		return $image;
+	}
+
+	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
+	$icon_url    = add_query_arg(
+		'ver',
+		'0.5.62',
+		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
+	);
+
+	return sprintf(
+		'<img src="%s" width="64" height="64" alt="%s" style="border:0;border-radius:10px;display:block;height:64px;max-width:64px;object-fit:cover;width:64px;" />',
+		esc_url( $icon_url ),
+		esc_attr__( 'REii AI-generated video', 'on-model-commerce' )
+	);
+}
+add_filter( 'woocommerce_order_item_thumbnail', 'aip_reii_email_order_item_thumbnail_v0562', 20, 2 );
