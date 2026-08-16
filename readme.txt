@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.97
+Stable tag: 0.5.96
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -13,11 +13,8 @@ Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plu
 
 == Changelog ==
 
-= 0.5.97 =
-* Recover a verified Stripe Checkout order from the customer confirmation request when the live webhook is delayed or missing, while preserving session-level idempotency.
-
 = 0.5.96 =
-* Pin direct Stripe requests to API version 2026-06-24.dahlia so 100% promotion codes can create no-cost Checkout orders, and accept Stripe's no_payment_required completion status.
+* Add high-definition OpenGraph social sharing card, custom REii brand favicon/app icons, and distinct document titles for reii.techbyleon.com.
 
 = 0.5.95 =
 * Add direct WooCommerce coupon validation, 100% free order completion without credit card, and seamless discount passing.
