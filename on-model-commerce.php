@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: Direct Stripe ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.69
+ * Version: 0.5.70
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -572,7 +572,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.69' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.70' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -815,7 +815,7 @@ function aip_reii_prepare_native_checkout_v0554() {
 		}
 	}
 
-	$allowed_addons = array( 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
+	$allowed_addons = array( 'amazon-storefront', 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
 	$addon          = sanitize_key( wp_unslash( $_POST['aip-addon'] ?? '' ) );
 	$addon          = in_array( $addon, $allowed_addons, true ) ? $addon : '';
 	$intake         = array(
@@ -881,7 +881,7 @@ function aip_reii_capture_direct_purchase( $contact_form, &$abort, $submission )
 			}
 		}
 	}
-	$allowed_addons = array( 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
+	$allowed_addons = array( 'amazon-storefront', 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
 	$addon          = isset( $_POST['aip-addon'] ) ? sanitize_key( wp_unslash( $_POST['aip-addon'] ) ) : '';
 	$addon          = in_array( $addon, $allowed_addons, true ) ? $addon : '';
 	$intake         = array(
@@ -954,6 +954,7 @@ function aip_reii_price_direct_purchase( $cart ) {
 		return;
 	}
 	$addon_prices = array(
+		'amazon-storefront'  => 10,
 		'extra-environment'  => 15,
 		'another-version'    => 15,
 		'20-second-story'    => 10,
@@ -1074,7 +1075,7 @@ function aip_reii_capture_current_intake_v0549( $contact_form, &$abort, $submiss
 			}
 		}
 	}
-	$allowed_addons = array( 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
+	$allowed_addons = array( 'amazon-storefront', 'extra-environment', 'another-version', '20-second-story', 'alternate-lighting', 'priority-delivery' );
 	$addon          = isset( $_POST['aip-addon'] ) ? sanitize_key( wp_unslash( $_POST['aip-addon'] ) ) : '';
 	$addon          = in_array( $addon, $allowed_addons, true ) ? $addon : '';
 	$current        = array(
@@ -1235,6 +1236,7 @@ function aip_reii_apply_intake_to_item_v0549( $item, $intake, $save = false ) {
 		$item->add_meta_data( 'Customer instructions', wc_clean( $intake['notes'] ), true );
 	}
 	$addon_labels = array(
+		'amazon-storefront'  => 'Post to Amazon Storefront (+$10)',
 		'extra-environment'  => 'Extra environment (+$15)',
 		'another-version'    => 'Another version (+$15)',
 		'20-second-story'    => '20-second story (+$10)',
@@ -1431,7 +1433,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.69';
+	const VERSION     = '0.5.70';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
@@ -1829,7 +1831,11 @@ final class AIP_On_Model_Commerce_GitHub {
 			}
 		}
 		$submitted_at       = $order->get_meta( '_aip_intake_submitted_at' );
-		$created_at         = $order->get_date_created() ? $order->get_date_created()->date( DATE_ATOM ) : null;
+		$created_at         = $order->get_date_created()
+			? ( function_exists( 'wp_timezone' ) && method_exists( $order->get_date_created(), 'setTimezone' )
+				? $order->get_date_created()->setTimezone( wp_timezone() )->format( DATE_ATOM )
+				: $order->get_date_created()->date( DATE_ATOM ) )
+			: null;
 		$deliverables       = $order->get_meta( '_aip_deliverables' );
 		$deliverables       = is_array( $deliverables ) ? $deliverables : array();
 		$delivery_brief     = $order->get_meta( '_aip_delivery_brief' );
@@ -1866,6 +1872,8 @@ final class AIP_On_Model_Commerce_GitHub {
 			'reference'     => $reference,
 			'method'        => $method,
 			'notes'         => $notes,
+			'addon'         => (string) $order->get_meta( '_aip_intake_addon' ),
+			'amazon_storefront' => 'yes' === $order->get_meta( '_aip_amazon_storefront' ) || 'amazon-storefront' === $order->get_meta( '_aip_intake_addon' ),
 			'uploaded_files' => array_slice( $uploaded_files, 0, 4 ),
 			'items'         => $items,
 			'deliverables'  => $deliverables,
@@ -2719,6 +2727,7 @@ final class AIP_On_Model_Commerce_GitHub {
 
 	private static function addon_catalog() {
 		return array(
+			'amazon-storefront'  => array( 'label' => 'Post to Amazon Storefront', 'price' => 10 ),
 			'extra-environment'  => array( 'label' => 'Extra environment', 'price' => 15 ),
 			'another-version'    => array( 'label' => 'Another version', 'price' => 15 ),
 			'20-second-story'    => array( 'label' => '20-second story', 'price' => 10 ),

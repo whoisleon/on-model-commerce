@@ -76,6 +76,7 @@ function aip_reii_stripe_api_request_v0559( $method, $path, $parameters = array(
 
 function aip_reii_stripe_offer_v0559( $addon ) {
 	$addons = array(
+		'amazon-storefront'  => array( 'label' => 'Post to Amazon Storefront', 'amount' => 1000 ),
 		'extra-environment'  => array( 'label' => 'Extra environment', 'amount' => 1500 ),
 		'another-version'    => array( 'label' => 'Another version', 'amount' => 1500 ),
 		'20-second-story'    => array( 'label' => '20-second story', 'amount' => 1000 ),
@@ -119,6 +120,9 @@ function aip_reii_create_pending_stripe_order_v0559( $intake, $product, $offer )
 		if ( $offer['addon_label'] ) {
 			$item->add_meta_data( 'Video add-on', $offer['addon_label'], true );
 		}
+		if ( 'amazon-storefront' === ( $intake['addon'] ?? '' ) ) {
+			$item->add_meta_data( 'Amazon Storefront', 'Yes (+$10)', true );
+		}
 		$item->save();
 	}
 	$order->set_customer_id( 0 );
@@ -132,6 +136,9 @@ function aip_reii_create_pending_stripe_order_v0559( $intake, $product, $offer )
 	$order->update_meta_data( '_aip_intake_reference', $intake['reference'] );
 	$order->update_meta_data( '_aip_intake_notes', $intake['notes'] );
 	$order->update_meta_data( '_aip_intake_addon', $intake['addon'] );
+	if ( 'amazon-storefront' === ( $intake['addon'] ?? '' ) ) {
+		$order->update_meta_data( '_aip_amazon_storefront', 'yes' );
+	}
 	$order->update_meta_data( '_aip_intake_source_order', $intake['source_order'] );
 	$order->update_meta_data( '_aip_intake_submitted_at', $intake['submitted_at'] );
 	$order->update_meta_data( '_aip_uploaded_files', $intake['files'] );
@@ -355,7 +362,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.69',
+		'0.5.70',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
