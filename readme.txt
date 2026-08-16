@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.96
+Stable tag: 0.5.97
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing direct Stripe project intake, production workflow, private deliv
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.97 =
+* Recover a verified Stripe Checkout order from the customer confirmation request when the live webhook is delayed or missing, while preserving session-level idempotency.
 
 = 0.5.96 =
 * Pin direct Stripe requests to API version 2026-06-24.dahlia so 100% promotion codes can create no-cost Checkout orders, and accept Stripe's no_payment_required completion status.

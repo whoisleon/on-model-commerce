@@ -359,6 +359,61 @@ function aip_reii_stripe_webhook_event_v0559( $request ) {
 	return is_wp_error( $verified ) ? $verified : $verified;
 }
 
+/**
+ * Create or resolve an order from a completed Stripe Checkout Session. Stripe's
+ * webhook remains the primary path; the customer confirmation request uses this
+ * as an idempotent recovery path when the webhook is delayed or missing.
+ */
+function aip_reii_order_from_verified_session_v0597( $session ) {
+	if ( ! aip_reii_stripe_checkout_is_complete_v0596( $session ) || 'usd' !== strtolower( (string) ( $session['currency'] ?? '' ) ) ) {
+		return new WP_Error( 'aip_stripe_payment_unverified', 'Stripe payment is not verified.', array( 'status' => 409 ) );
+	}
+
+	$session_id     = sanitize_text_field( $session['id'] ?? '' );
+	$payment_intent = sanitize_text_field( $session['payment_intent'] ?? '' );
+	$intake_token   = sanitize_text_field( $session['metadata']['reii_intake_token'] ?? ( $session['client_reference_id'] ?? '' ) );
+	$existing_order = aip_reii_find_stripe_order_v0565( $payment_intent, $session_id, $intake_token );
+	if ( $existing_order ) {
+		if ( $intake_token && ! is_numeric( $intake_token ) ) {
+			delete_transient( 'aip_reii_intake_' . $intake_token );
+		}
+		return $existing_order;
+	}
+
+	if ( ! $intake_token || is_numeric( $intake_token ) ) {
+		return false;
+	}
+
+	$transient_key = 'aip_reii_intake_' . $intake_token;
+	$stored        = get_transient( $transient_key );
+	if ( ! is_array( $stored ) || empty( $stored['intake'] ) || empty( $stored['offer'] ) ) {
+		$retry_existing = aip_reii_find_stripe_order_v0565( $payment_intent, $session_id, $intake_token );
+		if ( $retry_existing ) {
+			return $retry_existing;
+		}
+		return new WP_Error( 'aip_stripe_intake_expired', 'Intake data expired or already used.', array( 'status' => 410 ) );
+	}
+
+	// Remove the transient before creation so retries must resolve the order by
+	// its Stripe session or intake token instead of creating another order.
+	delete_transient( $transient_key );
+	$paid_amount_cents = isset( $session['amount_total'] ) ? absint( $session['amount_total'] ) : null;
+	$order = aip_reii_create_paid_order_v0559(
+		$stored['intake'],
+		$stored['offer'],
+		$payment_intent,
+		$session_id,
+		$intake_token,
+		'',
+		$paid_amount_cents
+	);
+	if ( is_wp_error( $order ) ) {
+		set_transient( $transient_key, $stored, 2 * HOUR_IN_SECONDS );
+		return new WP_Error( 'aip_stripe_order_creation_failed', $order->get_error_message(), array( 'status' => 500 ) );
+	}
+	return $order;
+}
+
 function aip_reii_stripe_webhook_v0559( $request ) {
 	$event = aip_reii_stripe_webhook_event_v0559( $request );
 	if ( is_wp_error( $event ) ) {
@@ -506,6 +561,12 @@ function aip_reii_stripe_confirmation_v0564( $request ) {
 	$order_id       = absint( $request->get_param( 'order_id' ) );
 	$payment_intent = sanitize_text_field( $session['payment_intent'] ?? '' );
 	$order          = aip_reii_find_stripe_order_v0565( $payment_intent, $session_id, '', $order_id );
+	if ( ! $order ) {
+		$order = aip_reii_order_from_verified_session_v0597( $session );
+		if ( is_wp_error( $order ) ) {
+			return $order;
+		}
+	}
 
 	$email = sanitize_email( $session['customer_details']['email'] ?? ( $session['customer_email'] ?? '' ) );
 	if ( ( ! $email || ! is_email( $email ) ) && $order ) {
@@ -515,7 +576,11 @@ function aip_reii_stripe_confirmation_v0564( $request ) {
 		return new WP_Error( 'aip_stripe_confirmation_email_missing', 'Confirmation email is unavailable.', array( 'status' => 404 ) );
 	}
 
-	$response = rest_ensure_response( array( 'email' => $email ) );
+	$response_data = array( 'email' => $email );
+	if ( $order ) {
+		$response_data['order_id'] = $order->get_id();
+	}
+	$response = rest_ensure_response( $response_data );
 	$response->header( 'Cache-Control', 'no-store, private' );
 	return $response;
 }
@@ -533,7 +598,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.96',
+		'0.5.97',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
