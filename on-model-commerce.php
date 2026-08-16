@@ -1933,9 +1933,9 @@ final class AIP_On_Model_Commerce_GitHub {
 		$raw_status = sanitize_key( $request->get_param( 'status' ) ?: 'all' );
 		$filter_review = 'content-review' === $raw_status;
 		if ( 'all' === $raw_status || $filter_review ) {
-			$status_query = array( 'processing', 'content-queued', 'content-creating', 'completed', 'on-hold', 'pending' );
+			$status_query = array( 'processing', 'content-queued', 'content-creating', 'completed', 'on-hold' );
 		} elseif ( 'processing' === $raw_status ) {
-			$status_query = array( 'processing', 'content-queued', 'content-creating', 'pending' );
+			$status_query = array( 'processing', 'content-queued', 'content-creating' );
 		} else {
 			$status_query = $raw_status;
 		}
