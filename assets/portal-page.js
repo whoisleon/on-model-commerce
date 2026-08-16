@@ -503,6 +503,72 @@
     }
   }
 
+  function launchConfetti(container){
+    var canvas=document.createElement('canvas');
+    canvas.className='aip-confetti-canvas';
+    canvas.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999999999;';
+    (container||document.body).appendChild(canvas);
+    var ctx=canvas.getContext('2d');
+    if(!ctx)return;
+    var width=canvas.width=window.innerWidth||document.documentElement.clientWidth||800;
+    var height=canvas.height=window.innerHeight||document.documentElement.clientHeight||600;
+    var count=Math.min(110,Math.floor(width/12));
+    var colors=['#5d32ea','#7e62e8','#f59e0b','#ec4899','#10b981','#3b82f6','#fbbf24','#a855f7'];
+    var particles=[];
+    for(var i=0;i<count;i++){
+      particles.push({
+        x:width*(0.25+0.5*Math.random()),
+        y:height*0.45+(Math.random()*40),
+        vx:(Math.random()-0.5)*18,
+        vy:-Math.random()*15-6,
+        size:Math.random()*8+6,
+        color:colors[Math.floor(Math.random()*colors.length)],
+        rotation:Math.random()*360,
+        rotationSpeed:(Math.random()-0.5)*14,
+        wobble:Math.random()*10,
+        wobbleSpeed:0.1+Math.random()*0.12,
+        shape:Math.random()>0.35?'rect':'circle'
+      });
+    }
+    var startTime=performance.now();
+    var duration=3600;
+    function render(now){
+      var elapsed=now-startTime;
+      var progress=elapsed/duration;
+      if(progress>=1){
+        if(canvas.parentNode)canvas.remove();
+        return;
+      }
+      ctx.clearRect(0,0,width,height);
+      var gravity=0.36;
+      var drag=0.985;
+      particles.forEach(function(p){
+        p.vx*=drag;
+        p.vy=(p.vy*drag)+gravity;
+        p.x+=p.vx;
+        p.y+=p.vy;
+        p.rotation+=p.rotationSpeed;
+        p.wobble+=p.wobbleSpeed;
+        var fade=progress>0.65?(1-progress)/0.35:1;
+        ctx.save();
+        ctx.translate(p.x+Math.sin(p.wobble)*3,p.y);
+        ctx.rotate((p.rotation*Math.PI)/180);
+        ctx.globalAlpha=Math.max(0,fade);
+        ctx.fillStyle=p.color;
+        if(p.shape==='rect'){
+          ctx.fillRect(-p.size/2,-p.size/3,p.size,p.size*0.7);
+        }else{
+          ctx.beginPath();
+          ctx.arc(0,0,p.size/2.5,0,Math.PI*2);
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  }
+
   function initStripeReturn(){
     var params=new URLSearchParams(window.location.search||'');
     var state=params.get('aip_stripe')||'';
@@ -514,7 +580,7 @@
       return;
     }
     if(state!=='success')return;
-    clearDraft();
+    window.setTimeout(function(){launchConfetti();},1000);
     var previous=document.querySelector('.aip-payment-modal');
     if(previous)previous.remove();
     var modal=document.createElement('div');
@@ -522,7 +588,7 @@
     modal.setAttribute('role','dialog');
     modal.setAttribute('aria-modal','true');
     modal.setAttribute('aria-labelledby','aip-payment-title');
-    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker">Order confirmed &middot; 03 of 03</small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to <strong id="aip-confirmation-email">the email used at Stripe Checkout</strong>. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Create another REii video</button><span>Have another product ready?</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>We&rsquo;ll keep you updated.</strong><br>Your receipt and private delivery link will arrive by email.</p><span class="aip-confirmation-version">REii Commerce v0.5.66</span></aside></div></section>';
+    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker">Order confirmed &middot; 03 of 03</small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to <strong id="aip-confirmation-email">the email used at Stripe Checkout</strong>. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Create another REii video</button><span>Have another product ready?</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>We&rsquo;ll keep you updated.</strong><br>Your receipt and private delivery link will arrive by email.</p><span class="aip-confirmation-version">REii Commerce v0.5.77</span></aside></div></section>';
     document.body.appendChild(modal);
     document.body.classList.add('aip-payment-open');
     var orderId=params.get('order_id')||'';
@@ -534,7 +600,15 @@
         if(!response.ok)throw new Error('Confirmation email unavailable');
         return response.json();
       }).then(function(data){
-        if(data&&data.email)emailTarget.textContent=data.email;
+        if(data&&data.email){
+          emailTarget.textContent=data.email;
+          try{
+            var draft=JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY)||'{}');
+            draft.email=data.email;
+            localStorage.setItem(DRAFT_STORAGE_KEY,JSON.stringify(draft));
+            sessionStorage.setItem(DRAFT_STORAGE_KEY,JSON.stringify(draft));
+          }catch(e){}
+        }
       }).catch(function(){});
     }
     var onKeydown;
@@ -544,7 +618,7 @@
     var createAnotherButton=modal.querySelector('.aip-confirmation-actions button');
     onKeydown=function(event){if(event.key==='Escape')close();};
     closeButton.addEventListener('click',close);
-    createAnotherButton.addEventListener('click',function(){close();openModal();});
+    createAnotherButton.addEventListener('click',function(){close();restoreDraft();openModal();});
     document.addEventListener('keydown',onKeydown);
     closeButton.focus();
   }
@@ -589,6 +663,7 @@
       if(announcement)announcement.textContent='Payment complete. Your order is confirmed.';
       closeButton.setAttribute('aria-label','Close order confirmation');
       frame.setAttribute('title','REii order confirmation');
+      window.setTimeout(function(){launchConfetti(modal);},1000);
       modal.querySelectorAll('[data-aip-payment-step]').forEach(function(step){
         var complete=step.getAttribute('data-aip-payment-step')!=='3';
         step.classList.toggle('is-complete',complete);
