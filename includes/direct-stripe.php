@@ -238,6 +238,14 @@ function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $se
 	$order->save();
 	$order->payment_complete( $payment_intent );
 	$order->add_order_note( 'Paid through direct Stripe Checkout. Order created after payment confirmation.' );
+
+	// Ensure the customer processing confirmation email is dispatched
+	if ( function_exists( 'WC' ) && WC()->mailer() ) {
+		$emails = WC()->mailer()->get_emails();
+		if ( isset( $emails['WC_Email_Customer_Processing_Order'] ) && 'yes' !== $order->get_meta( '_aip_processing_email_sent' ) ) {
+			$emails['WC_Email_Customer_Processing_Order']->trigger( $order->get_id(), $order );
+		}
+	}
 	return $order;
 }
 
@@ -486,7 +494,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.91',
+		'0.5.92',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
