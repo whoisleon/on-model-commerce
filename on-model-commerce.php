@@ -3,7 +3,7 @@
  * Plugin Name: REii Commerce
  * Plugin URI: https://techbyleon.com/
  * Description: Direct Stripe ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.98
+ * Version: 0.5.99
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -261,44 +261,52 @@ function aip_reii_is_portal_request_v0596() {
 	return ( 'reii.techbyleon.com' === $host );
 }
 
-function aip_reii_render_social_meta_and_branding_v0596() {
-	if ( ! aip_reii_is_portal_request_v0596() ) {
-		return;
+function aip_reii_render_techbyleon_branding_v0599() {
+	$plugin_file = __FILE__;
+	if ( aip_reii_is_portal_request_v0596() ) {
+		$social_img  = plugins_url( 'assets/reii-social-preview.jpg', $plugin_file );
+		$icon_32     = plugins_url( 'assets/reii-favicon-32.png', $plugin_file );
+		$icon_192    = plugins_url( 'assets/reii-icon-192.png', $plugin_file );
+		$touch_icon  = plugins_url( 'assets/reii-apple-touch-icon.png', $plugin_file );
+		$page_title  = 'REii — AI Influencer UGC Studio';
+		$page_desc   = 'Create hyper-realistic AI influencer UGC videos for your Amazon listings and products in minutes. 1-click publishing to Amazon Storefront.';
+		$page_url    = 'https://reii.techbyleon.com/';
+		$site_name   = 'REii Studio';
+	} else {
+		$social_img  = plugins_url( 'assets/techbyleon-social-preview.jpg', $plugin_file );
+		$icon_32     = plugins_url( 'assets/techbyleon-favicon-32.png', $plugin_file );
+		$icon_192    = plugins_url( 'assets/techbyleon-icon-192.png', $plugin_file );
+		$touch_icon  = plugins_url( 'assets/techbyleon-apple-touch-icon.png', $plugin_file );
+		$page_title  = 'Tech by Leon';
+		$page_desc   = 'Tech by Leon — Creative Technology, AI Influencers & Software Development.';
+		$page_url    = 'https://techbyleon.com/';
+		$site_name   = 'Tech by Leon';
 	}
 
-	$plugin_file = __FILE__;
-	$social_img  = plugins_url( 'assets/reii-social-preview.jpg', $plugin_file );
-	$icon_32     = plugins_url( 'assets/reii-favicon-32.png', $plugin_file );
-	$icon_192    = plugins_url( 'assets/reii-icon-192.png', $plugin_file );
-	$touch_icon  = plugins_url( 'assets/reii-apple-touch-icon.png', $plugin_file );
-	$page_title  = 'REii — AI Influencer UGC Studio';
-	$page_desc   = 'Create hyper-realistic AI influencer UGC videos for your Amazon listings and products in minutes. 1-click publishing to Amazon Storefront.';
-	$page_url    = 'https://reii.techbyleon.com/';
-
-	echo "\n<!-- REii Studio OpenGraph & Social Preview -->\n";
-	echo '<meta name="description" content="' . esc_attr( $page_desc ) . '" />' . "\n";
-	echo '<meta property="og:type" content="website" />' . "\n";
-	echo '<meta property="og:site_name" content="REii Studio" />' . "\n";
-	echo '<meta property="og:title" content="' . esc_attr( $page_title ) . '" />' . "\n";
-	echo '<meta property="og:description" content="' . esc_attr( $page_desc ) . '" />' . "\n";
-	echo '<meta property="og:url" content="' . esc_url( $page_url ) . '" />' . "\n";
+	echo "\n<!-- OpenGraph & Custom High-Definition Branding -->\n";
+	echo '<meta property="og:site_name" content="' . esc_attr( $site_name ) . '" />' . "\n";
 	echo '<meta property="og:image" content="' . esc_url( $social_img ) . '" />' . "\n";
 	echo '<meta property="og:image:secure_url" content="' . esc_url( $social_img ) . '" />' . "\n";
-	echo '<meta property="og:image:width" content="1280" />' . "\n";
-	echo '<meta property="og:image:height" content="720" />' . "\n";
+	echo '<meta property="og:image:width" content="1200" />' . "\n";
+	echo '<meta property="og:image:height" content="630" />' . "\n";
 	echo '<meta property="og:image:type" content="image/jpeg" />' . "\n";
-	echo '<meta property="og:image:alt" content="REii AI Influencer Studio" />' . "\n";
 	echo '<meta name="twitter:card" content="summary_large_image" />' . "\n";
-	echo '<meta name="twitter:title" content="' . esc_attr( $page_title ) . '" />' . "\n";
-	echo '<meta name="twitter:description" content="' . esc_attr( $page_desc ) . '" />' . "\n";
 	echo '<meta name="twitter:image" content="' . esc_url( $social_img ) . '" />' . "\n";
-	echo '<meta name="twitter:image:alt" content="REii AI Influencer Studio" />' . "\n";
 	echo '<link rel="icon" type="image/png" sizes="32x32" href="' . esc_url( $icon_32 ) . '" />' . "\n";
 	echo '<link rel="icon" type="image/png" sizes="192x192" href="' . esc_url( $icon_192 ) . '" />' . "\n";
 	echo '<link rel="apple-touch-icon" sizes="180x180" href="' . esc_url( $touch_icon ) . '" />' . "\n";
-	echo "<!-- End REii Studio Social Preview -->\n";
+	if ( aip_reii_is_portal_request_v0596() ) {
+		echo '<meta name="description" content="' . esc_attr( $page_desc ) . '" />' . "\n";
+		echo '<meta property="og:type" content="website" />' . "\n";
+		echo '<meta property="og:title" content="' . esc_attr( $page_title ) . '" />' . "\n";
+		echo '<meta property="og:description" content="' . esc_attr( $page_desc ) . '" />' . "\n";
+		echo '<meta property="og:url" content="' . esc_url( $page_url ) . '" />' . "\n";
+		echo '<meta name="twitter:title" content="' . esc_attr( $page_title ) . '" />' . "\n";
+		echo '<meta name="twitter:description" content="' . esc_attr( $page_desc ) . '" />' . "\n";
+	}
+	echo "<!-- End High-Definition Branding -->\n";
 }
-add_action( 'wp_head', 'aip_reii_render_social_meta_and_branding_v0596', 0 );
+add_action( 'wp_head', 'aip_reii_render_techbyleon_branding_v0599', 0 );
 
 function aip_reii_filter_document_title_v0596( $title ) {
 	if ( aip_reii_is_portal_request_v0596() ) {
@@ -310,10 +318,11 @@ add_filter( 'pre_get_document_title', 'aip_reii_filter_document_title_v0596', 99
 add_filter( 'wp_title', 'aip_reii_filter_document_title_v0596', 999 );
 
 function aip_reii_filter_site_icon_url_v0596( $url, $size = 512, $blog_id = 0 ) {
+	$plugin_file = __FILE__;
 	if ( aip_reii_is_portal_request_v0596() ) {
-		return plugins_url( 'assets/reii-icon-192.png', __FILE__ );
+		return plugins_url( 'assets/reii-icon-192.png', $plugin_file );
 	}
-	return $url;
+	return plugins_url( 'assets/techbyleon-icon-192.png', $plugin_file );
 }
 add_filter( 'get_site_icon_url', 'aip_reii_filter_site_icon_url_v0596', 999, 3 );
 
@@ -637,7 +646,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.98' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.99' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -1613,7 +1622,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.98';
+	const VERSION     = '0.5.99';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';

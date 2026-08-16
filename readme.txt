@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.98
+Stable tag: 0.5.99
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing direct Stripe project intake, production workflow, private deliv
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.99 =
+* Add new custom Tech By Leon 'by' logo, crisp favicons, and dedicated social sharing card for techbyleon.com.
 
 = 0.5.98 =
 * Add high-definition OpenGraph social sharing card, custom REii brand favicon/app icons, and distinct document titles for reii.techbyleon.com.
