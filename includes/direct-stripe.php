@@ -254,8 +254,8 @@ function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $se
 	return $order;
 }
 
-function aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product ) {
-	$offer = aip_reii_stripe_offer_v0559( $intake['addon'] );
+function aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product, $custom_offer = null ) {
+	$offer = is_array( $custom_offer ) ? $custom_offer : aip_reii_stripe_offer_v0559( $intake['addon'] );
 	$token = aip_reii_store_intake_v0559( $intake, $offer );
 	$description = $offer['addon_label']
 		? 'One 10-second REii video plus ' . $offer['addon_label'] . '.'
@@ -520,7 +520,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.94',
+		'0.5.95',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 

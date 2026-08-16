@@ -3,7 +3,7 @@
  * Plugin Name: REii Commerce
  * Plugin URI: https://techbyleon.com/
  * Description: Direct Stripe ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.94
+ * Version: 0.5.95
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -573,7 +573,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.94' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.95' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -838,6 +838,63 @@ function aip_reii_prepare_native_checkout_v0554() {
 		'files'        => $files,
 		'submitted_at' => current_time( DATE_ATOM ),
 	);
+
+	$coupon_code = sanitize_text_field( wp_unslash( $_POST['coupon-code'] ?? '' ) );
+	$offer       = aip_reii_stripe_offer_v0559( $addon );
+
+	if ( $coupon_code ) {
+		if ( ! class_exists( 'WC_Coupon' ) ) {
+			aip_reii_native_checkout_error_v0554( 'Coupon verification is temporarily unavailable.' );
+		}
+		$coupon = new WC_Coupon( $coupon_code );
+		if ( ! $coupon->get_id() || ! $coupon->is_valid() ) {
+			aip_reii_native_checkout_error_v0554( 'Coupon code "' . esc_html( $coupon_code ) . '" is invalid or expired.' );
+		}
+
+		$total_cents   = (int) $offer['amount'];
+		$discount_type = $coupon->get_discount_type();
+		$coupon_amount = (float) $coupon->get_amount();
+
+		if ( 'percent' === $discount_type ) {
+			$discount_cents = (int) round( $total_cents * ( $coupon_amount / 100 ) );
+		} else {
+			$discount_cents = (int) round( $coupon_amount * 100 );
+		}
+		$final_cents = max( 0, $total_cents - $discount_cents );
+
+		if ( 0 === $final_cents ) {
+			// 100% Free Order! Create WooCommerce order directly without Stripe.
+			$intake_token = wp_generate_password( 24, false );
+			$order        = aip_reii_create_paid_order_v0559(
+				$intake,
+				$offer,
+				'free-coupon-' . wp_generate_password( 12, false ),
+				'free-session-' . $intake_token,
+				$intake_token,
+				'',
+				0
+			);
+			if ( is_wp_error( $order ) ) {
+				aip_reii_native_checkout_error_v0554( $order->get_error_message(), 500 );
+			}
+			$order->apply_coupon( $coupon->get_code() );
+			$order->add_order_note( sprintf( 'Order completed for $0.00 using 100%% coupon: %s.', $coupon->get_code() ) );
+			$order->save();
+
+			wp_send_json_success( array(
+				'checkout_mode' => 'free_order_complete',
+				'order_id'      => $order->get_id(),
+				'email'         => $email,
+			) );
+		} else {
+			$offer['amount'] = $final_cents;
+			$stripe_checkout = aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product, $offer );
+			if ( is_wp_error( $stripe_checkout ) ) {
+				aip_reii_native_checkout_error_v0554( $stripe_checkout->get_error_message(), 503 );
+			}
+			wp_send_json_success( $stripe_checkout );
+		}
+	}
 
 	$stripe_checkout = aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product );
 	if ( is_wp_error( $stripe_checkout ) ) {
@@ -1492,7 +1549,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.94';
+	const VERSION     = '0.5.95';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';

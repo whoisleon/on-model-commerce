@@ -287,6 +287,10 @@
           if(!result||!result.success){var message=result&&result.data&&result.data.message?result.data.message:'Checkout could not prepare this order.';throw new Error(message);}
           setSubmitHandoff(form,false);
           form.dataset.aipSubmitting='0';
+          if(result.data.checkout_mode==='free_order_complete'){
+            if(window.showFreeOrderConfirmation)window.showFreeOrderConfirmation(result.data.email||email.value);
+            return;
+          }
           if(result.data.checkout_mode==='stripe_redirect'){
             var stripeUrl=String(result.data.checkout_url||'');
             if(!/^https:\/\/checkout\.stripe\.com\//i.test(stripeUrl))throw new Error('Stripe returned an invalid checkout link.');
@@ -624,6 +628,33 @@
     }
     requestAnimationFrame(render);
   }
+
+  function showFreeOrderConfirmation(confirmedEmail){
+    closeModal();
+    window.setTimeout(function(){launchConfetti();},300);
+    var previous=document.querySelector('.aip-payment-modal');
+    if(previous)previous.remove();
+    var modal=document.createElement('div');
+    modal.className='aip-payment-modal is-open is-loaded is-complete is-uncode-confirmation';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.setAttribute('aria-labelledby','aip-payment-title');
+    var safeEmail=confirmedEmail?String(confirmedEmail).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'your email';
+    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker"><span class="aip-confirmation-step">03 of 03</span><span class="aip-confirmation-label">Order confirmed</span></small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to <strong id="aip-confirmation-email">'+safeEmail+'</strong>. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Create another REii video</button><span>Have another product ready?</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>We&rsquo;ll keep you updated.</strong><br>Your receipt and private delivery link will arrive by email.</p><span class="aip-confirmation-version">REii Commerce v0.5.95</span></aside></div></section>';
+    document.body.appendChild(modal);
+    document.body.classList.add('aip-payment-open');
+    var onKeydown;
+    var close=function(){document.removeEventListener('keydown',onKeydown);modal.remove();document.body.classList.remove('aip-payment-open');};
+    modal.querySelector('.aip-payment-backdrop').addEventListener('click',close);
+    var closeButton=modal.querySelector('.aip-confirmation-close');
+    var createAnotherButton=modal.querySelector('.aip-confirmation-actions button');
+    onKeydown=function(event){if(event.key==='Escape')close();};
+    closeButton.addEventListener('click',close);
+    createAnotherButton.addEventListener('click',function(){close();restoreDraft();openModal();});
+    document.addEventListener('keydown',onKeydown);
+    closeButton.focus();
+  }
+  window.showFreeOrderConfirmation=showFreeOrderConfirmation;
 
   function initStripeReturn(){
     var params=new URLSearchParams(window.location.search||'');
