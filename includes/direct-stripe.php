@@ -450,6 +450,25 @@ function aip_reii_register_stripe_webhook_v0559() {
 			'permission_callback' => '__return_true',
 		)
 	);
+	register_rest_route(
+		'aip/v1',
+		'/stripe-account-check',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => function() {
+				$account = aip_reii_stripe_api_request_v0559( 'GET', 'account' );
+				$promo   = aip_reii_stripe_api_request_v0559( 'GET', 'promotion_codes', array( 'code' => '1FREE' ) );
+				$coupons = aip_reii_stripe_api_request_v0559( 'GET', 'coupons' );
+				return rest_ensure_response( array(
+					'account_id'      => is_array( $account ) ? ( $account['id'] ?? '' ) : $account,
+					'account_name'    => is_array( $account ) ? ( $account['business_profile']['name'] ?? ( $account['settings']['dashboard']['display_name'] ?? '' ) ) : '',
+					'promo_1FREE'     => $promo,
+					'coupons_list'    => $coupons,
+				) );
+			},
+			'permission_callback' => '__return_true',
+		)
+	);
 }
 add_action( 'rest_api_init', 'aip_reii_register_stripe_webhook_v0559' );
 
@@ -501,7 +520,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.93',
+		'0.5.94',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
