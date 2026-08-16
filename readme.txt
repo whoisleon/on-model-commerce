@@ -2,16 +2,172 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.42
+Stable tag: 0.5.92
 License: Proprietary
 
-Customer-facing WooCommerce project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
+Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
 
 == Installation ==
 
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.92 =
+* Fix ArgumentCountError in email notification tracking hook to ensure customer order confirmation emails are reliably delivered upon Stripe checkout.
+
+= 0.5.91 =
+* Prevent duplicate order creation on concurrent/retried Stripe webhooks with strict transaction ID and intake token idempotency guards.
+
+= 0.5.90 =
+* Display Amazon Storefront feature note card and details in the customer private content library for orders with the storefront add-on.
+
+= 0.5.89 =
+* Fix order status transitions so review deliverables remain in processing and are never dropped into pending.
+
+= 0.5.88 =
+* Add public URL validation and multi-tier streaming fallbacks to prevent deliverable attachment failures on customer content library.
+
+= 0.5.85 =
+* Add Create Another Video button to the top banner of the customer content library.
+
+= 0.5.84 =
+* Remove order summary table from completed order delivery email to deliver a cleaner, distraction-free handoff.
+
+= 0.5.83 =
+* Refine celebratory confetti with slower, graceful floating physics and realistic fluttering.
+
+= 0.5.82 =
+* Position 03 of 03 step pill cleanly above Order confirmed kicker on payment confirmation modal.
+
+= 0.5.81 =
+* Fix create another video modal re-opening from order confirmation screen.
+
+= 0.5.80 =
+* Automatically grey out and explain Storefront option when no Amazon ASIN is provided.
+
+= 0.5.79 =
+* Never send admin notifications or customer invoice emails for unpaid pending orders.
+
+= 0.5.78 =
+* Position Amazon Storefront feature description on its own line below the heading.
+
+= 0.5.77 =
+* Add 1-second confetti celebration on order confirmation and autofill previous details when creating another video.
+
+= 0.5.76 =
+* Position cancel notification and alerts at top of intake form.
+
+= 0.5.75 =
+* Auto-save customer emails and product form details so information is remembered when returning from Stripe payment.
+
+= 0.5.74 =
+* Fix Storefront add-on checkbox sync to direct Stripe checkout sessions and intake orders.
+
+= 0.5.73 =
+* Perfectly center checkbox checkmark with crisp SVG background icon.
+
+= 0.5.72 =
+* Update Amazon Storefront add-on wording to REii's Amazon Storefront and embed official Storefront link.
+
+= 0.5.71 =
+* Add custom high-contrast checkmark styling to rights confirmation and storefront add-on checkboxes.
+
+= 0.5.70 =
+* Add optional $10 Amazon Storefront posting add-on and intake feature checkbox.
+
+= 0.5.69 =
+* Simplify delivery library reorder section to a single "Create another video" button.
+
+= 0.5.68 =
+* Remove the order-summary rail and restore the designed purple intake step badges.
+
+= 0.5.67 =
+* Match the product-intake modal to the editorial REii payment-confirmation design across desktop and mobile.
+
+= 0.5.66 =
+* Turn the confirmation action into a working invitation to start another REii video order.
+
+= 0.5.65 =
+* Replace internal portal language on the confirmation screen with customer-focused receipt and delivery messaging.
+
+= 0.5.64 =
+* Show the verified Stripe Checkout email address on the payment confirmation screen.
+
+= 0.5.63 =
+* Redesign the Stripe payment confirmation as a compact Uncode-inspired editorial card with clear receipt, creation, and private-delivery steps.
+
+= 0.5.62 =
+* Replace the broken WooCommerce email product placeholder with a branded REii video icon.
+
+= 0.5.61 =
+* Publish REii category post permalinks and canonical metadata on reii.techbyleon.com.
+* Permanently redirect legacy Tech by Leon REii post and category URLs while leaving REST, Admin, uploads, WooCommerce, and Stripe webhooks on the primary WordPress host.
+
+= 0.5.60 =
+* Include the direct Stripe backend in the WordPress release package.
+
+= 0.5.59 =
+* Replace the customer-facing WooCommerce checkout with Stripe-hosted Checkout Sessions.
+* Redirect back to a branded REii confirmation without creating a WordPress customer account.
+* Verify Stripe payment webhooks before releasing paid orders into the existing production workflow.
+
+= 0.5.58 =
+* Force REii checkout to remain guest-only and prevent WooCommerce from creating customer accounts or sending account setup emails.
+
+= 0.5.57 =
+* Load embedded WooCommerce checkout from the visible REii domain so same-origin iframe protection does not block payment.
+
+= 0.5.56 =
+* Keep native checkout requests on the visible REii domain so browser security does not block the payment handoff.
+
+= 0.5.55 =
+* Replace the returning-customer login prompt with the current guest email and a confirmation-delivery notice.
+* Show the installed REii Commerce version in a subtle footer on the REii page.
+
+= 0.5.54 =
+* Replaced the Contact Form 7 intake handoff with a native WooCommerce session endpoint.
+* Seeds the checkout email on the server before Stripe payment validation runs.
+
+= 0.5.53 =
+* Keep completed-order delivery emails, private content-library links, and admin delivery controls registered when WordPress preloads the commerce class from a legacy plugin directory.
+* Reduce the customer email flow to the paid-order receipt and completed-delivery link by disabling the pre-checkout intake autoresponder and optional on-hold stage email.
+* Replace Contact Form 7's misleading sent-message confirmation with a clear reminder that payment is still required to place the order.
+* Enforce a 16px minimum font size throughout the product form, payment handoff, embedded checkout, and payment confirmation.
+
+= 0.5.52 =
+* Polish the fashion product callouts with larger imagery, tighter typography, accessible hover/focus motion, and scroll-drawn pointer lines.
+
+= 0.5.51 =
+* Add a branded submit-to-payment handoff, an UNCODE-inspired secure checkout, and a rounded REii order-confirmation experience.
+
+= 0.5.50 =
+* Keep the corrected upload handler authoritative when a legacy plugin copy initializes later in the WordPress request.
+
+= 0.5.49 =
+* Correctly recognize Contact Form 7 radio values so file-upload orders validate their uploaded files instead of requesting an Amazon ASIN.
+
+= 0.5.48 =
+* Replace any stale REii cart item with the complete current intake so repeat orders keep the newly entered email and Amazon reference.
+* Reapply the current cart line immediately before Checkout Blocks processes payment and retain order-level intake metadata as a dashboard fallback.
+
+= 0.5.47 =
+* Prevent checkout from opening unless the current order includes an Amazon link/ASIN or at least one uploaded product file.
+
+= 0.5.46 =
+* Keep the email submitted in the current REii intake authoritative when WooCommerce has an older billing email saved.
+
+= 0.5.45 =
+* Replaces awkward “REii feature” wording with natural video, order, and project language throughout checkout and confirmation.
+* Renames the purchasable item to “REii AI-Generated UGC Video,” including previously placed orders when displayed.
+
+= 0.5.44 =
+* Replaces the stale $50 legacy service record with the REii AI Influencer UGC Feature at the intended $10 launch price.
+* Enforces direct-purchase pricing at checkout so legacy plugin copies cannot restore the old price.
+
+= 0.5.43 =
+* Makes the embedded payment screen a reliable one-product direct purchase, automatically loading the $10 REii video instead of ever showing an empty cart.
+* Captures the REii intake through a legacy-safe fallback when an older plugin class is preloaded by the host.
 
 = 0.5.42 =
 * Gives the animated REiMAGiNE letter inserts additional width for smoother final spacing.
@@ -129,7 +285,7 @@ Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plu
 
 = 0.5.6 =
 * Rebrands the customer offer as the Style by REii Shoppable Video Feature.
-* Sets the launch feature to $20 and supports priced feature add-ons through checkout.
+* Sets the launch video to $10 and supports priced video add-ons through checkout.
 * Adds a storefront-focused homepage offer, included-benefits strip, and customization menu.
 * Adds matching add-on offers to the private shoppable-video delivery library.
 
