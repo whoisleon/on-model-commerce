@@ -76,7 +76,7 @@ function aip_reii_stripe_api_request_v0559( $method, $path, $parameters = array(
 
 function aip_reii_stripe_offer_v0559( $addon ) {
 	$addons = array(
-		'amazon-storefront'  => array( 'label' => 'Post to Amazon Storefront', 'amount' => 1000 ),
+		'amazon-storefront'  => array( 'label' => 'Post to REii’s Amazon Storefront', 'amount' => 1000 ),
 		'extra-environment'  => array( 'label' => 'Extra environment', 'amount' => 1500 ),
 		'another-version'    => array( 'label' => 'Another version', 'amount' => 1500 ),
 		'20-second-story'    => array( 'label' => '20-second story', 'amount' => 1000 ),
@@ -362,7 +362,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.71',
+		'0.5.72',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 

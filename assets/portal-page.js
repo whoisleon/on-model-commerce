@@ -292,7 +292,7 @@
   }
 
   var aipAddons={
-    'amazon-storefront':{label:'Post to Amazon Storefront',price:10},
+    'amazon-storefront':{label:'Post to REii\u2019s Amazon Storefront',price:10},
     'extra-environment':{label:'Extra environment',price:15},
     'another-version':{label:'Another version',price:15},
     'new-version':{label:'Another version',price:15,slug:'another-version'},
