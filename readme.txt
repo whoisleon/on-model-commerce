@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.87
+Stable tag: 0.5.88
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -13,7 +13,7 @@ Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plu
 
 == Changelog ==
 
-= 0.5.87 =
+= 0.5.88 =
 * Add public URL validation and multi-tier streaming fallbacks to prevent deliverable attachment failures on customer content library.
 
 = 0.5.85 =
