@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.96
+Stable tag: 0.5.98
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -13,7 +13,10 @@ Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plu
 
 == Changelog ==
 
-= 0.5.96 =
+= 0.5.98 =
+* Add high-definition OpenGraph social sharing card, custom REii brand favicon/app icons, and distinct document titles for reii.techbyleon.com.
+
+= 0.5.97 =
 * Add high-definition OpenGraph social sharing card, custom REii brand favicon/app icons, and distinct document titles for reii.techbyleon.com.
 
 = 0.5.95 =
