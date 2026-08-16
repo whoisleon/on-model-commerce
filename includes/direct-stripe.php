@@ -164,7 +164,7 @@ function aip_reii_find_stripe_order_v0565( $payment_intent = '', $session_id = '
  * The order is created with payment already complete — it never passes through
  * a "pending" state that would be visible to the dashboard.
  */
-function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $session_id = '', $intake_token = '', $event_id = '' ) {
+function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $session_id = '', $intake_token = '', $event_id = '', $paid_amount_cents = null ) {
 	$existing = aip_reii_find_stripe_order_v0565( $payment_intent, $session_id, $intake_token );
 	if ( $existing ) {
 		return $existing;
@@ -178,12 +178,13 @@ function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $se
 	if ( is_wp_error( $order ) ) {
 		return $order;
 	}
-	$amount  = (float) $offer['amount'] / 100;
-	$item_id = $order->add_product(
+	$subtotal = (float) $offer['amount'] / 100;
+	$amount   = $paid_amount_cents !== null ? ( (float) $paid_amount_cents / 100 ) : $subtotal;
+	$item_id  = $order->add_product(
 		$product,
 		1,
 		array(
-			'subtotal' => $amount,
+			'subtotal' => $subtotal,
 			'total'    => $amount,
 		)
 	);
@@ -236,8 +237,12 @@ function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $se
 		$order->update_meta_data( '_aip_stripe_event_ids', array( sanitize_text_field( $event_id ) ) );
 	}
 	$order->save();
-	$order->payment_complete( $payment_intent );
-	$order->add_order_note( 'Paid through direct Stripe Checkout. Order created after payment confirmation.' );
+	$order->payment_complete( $payment_intent ?: $session_id );
+	if ( $amount < $subtotal ) {
+		$order->add_order_note( sprintf( 'Paid through direct Stripe Checkout with coupon/discount applied. Total charged: $%0.2f.', $amount ) );
+	} else {
+		$order->add_order_note( 'Paid through direct Stripe Checkout. Order created after payment confirmation.' );
+	}
 
 	// Ensure the customer processing confirmation email is dispatched
 	if ( function_exists( 'WC' ) && WC()->mailer() ) {
@@ -275,6 +280,7 @@ function aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product ) {
 		'client_reference_id'                           => $token,
 		'success_url'                                   => $success_url,
 		'cancel_url'                                    => $cancel_url,
+		'allow_promotion_codes'                         => 'true',
 		'line_items[0][price_data][currency]'           => 'usd',
 		'line_items[0][price_data][unit_amount]'        => (string) $offer['amount'],
 		'line_items[0][price_data][product_data][name]' => 'REii AI influencer UGC video',
@@ -387,7 +393,8 @@ function aip_reii_stripe_webhook_v0559( $request ) {
 		// Delete transient immediately to prevent parallel race conditions
 		delete_transient( $transient_key );
 
-		$order = aip_reii_create_paid_order_v0559( $stored['intake'], $stored['offer'], $payment_intent, $session_id, $intake_token, $event_id );
+		$paid_amount_cents = isset( $session['amount_total'] ) ? absint( $session['amount_total'] ) : null;
+		$order = aip_reii_create_paid_order_v0559( $stored['intake'], $stored['offer'], $payment_intent, $session_id, $intake_token, $event_id, $paid_amount_cents );
 		if ( is_wp_error( $order ) ) {
 			set_transient( $transient_key, $stored, 2 * HOUR_IN_SECONDS );
 			return new WP_Error( 'aip_stripe_order_creation_failed', $order->get_error_message(), array( 'status' => 500 ) );
@@ -494,7 +501,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.92',
+		'0.5.93',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
