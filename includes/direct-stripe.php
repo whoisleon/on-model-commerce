@@ -2,6 +2,18 @@
 
 defined( 'ABSPATH' ) || exit;
 
+function aip_reii_stripe_api_version_v0596() {
+	return '2026-06-24.dahlia';
+}
+
+function aip_reii_stripe_checkout_is_complete_v0596( $session ) {
+	return is_array( $session ) && in_array(
+		(string) ( $session['payment_status'] ?? '' ),
+		array( 'paid', 'no_payment_required' ),
+		true
+	);
+}
+
 /**
  * Resolve Stripe credentials without exposing them to the browser. During the
  * WooCommerce migration, reuse the already-connected official Stripe gateway;
@@ -48,8 +60,9 @@ function aip_reii_stripe_api_request_v0559( $method, $path, $parameters = array(
 		'timeout' => 30,
 		'headers' => array_merge(
 			array(
-				'Authorization' => 'Bearer ' . $secret_key,
-				'Content-Type'  => 'application/x-www-form-urlencoded',
+				'Authorization'  => 'Bearer ' . $secret_key,
+				'Content-Type'   => 'application/x-www-form-urlencoded',
+				'Stripe-Version' => aip_reii_stripe_api_version_v0596(),
 			),
 			$headers
 		),
@@ -356,7 +369,7 @@ function aip_reii_stripe_webhook_v0559( $request ) {
 	if ( ! in_array( $type, array( 'checkout.session.completed', 'checkout.session.async_payment_succeeded' ), true ) ) {
 		return rest_ensure_response( array( 'received' => true ) );
 	}
-	if ( 'paid' !== ( $session['payment_status'] ?? '' ) || 'usd' !== strtolower( (string) ( $session['currency'] ?? '' ) ) ) {
+	if ( ! aip_reii_stripe_checkout_is_complete_v0596( $session ) || 'usd' !== strtolower( (string) ( $session['currency'] ?? '' ) ) ) {
 		return new WP_Error( 'aip_stripe_payment_unverified', 'Stripe payment is not verified.', array( 'status' => 409 ) );
 	}
 	$session_id     = sanitize_text_field( $session['id'] ?? '' );
@@ -486,7 +499,7 @@ function aip_reii_stripe_confirmation_v0564( $request ) {
 	if ( is_wp_error( $session ) ) {
 		return new WP_Error( 'aip_stripe_confirmation_unavailable', 'Confirmation is temporarily unavailable.', array( 'status' => 502 ) );
 	}
-	if ( 'paid' !== ( $session['payment_status'] ?? '' ) ) {
+	if ( ! aip_reii_stripe_checkout_is_complete_v0596( $session ) ) {
 		return new WP_Error( 'aip_stripe_confirmation_unverified', 'Payment is not verified.', array( 'status' => 409 ) );
 	}
 
@@ -520,7 +533,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.95',
+		'0.5.96',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
