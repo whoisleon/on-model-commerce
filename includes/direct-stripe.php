@@ -90,7 +90,28 @@ function aip_reii_stripe_offer_v0559( $addon ) {
 	);
 }
 
-function aip_reii_create_pending_stripe_order_v0559( $intake, $product, $offer ) {
+/**
+ * Store intake data in a transient until Stripe confirms payment.
+ * No WooCommerce order is created at this stage.
+ */
+function aip_reii_store_intake_v0559( $intake, $offer ) {
+	$token = wp_generate_password( 32, false );
+	$data  = array(
+		'intake' => $intake,
+		'offer'  => $offer,
+		'stored' => current_time( DATE_ATOM ),
+	);
+	set_transient( 'aip_reii_intake_' . $token, $data, 2 * HOUR_IN_SECONDS );
+	return $token;
+}
+
+/**
+ * Create a WooCommerce order from intake data AFTER Stripe confirms payment.
+ * The order is created with payment already complete — it never passes through
+ * a "pending" state that would be visible to the dashboard.
+ */
+function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent ) {
+	$product = aip_reii_direct_purchase_product();
 	if ( ! function_exists( 'wc_create_order' ) || ! $product ) {
 		return new WP_Error( 'aip_order_storage_unavailable', 'REii order storage is temporarily unavailable.' );
 	}
@@ -98,7 +119,7 @@ function aip_reii_create_pending_stripe_order_v0559( $intake, $product, $offer )
 	if ( is_wp_error( $order ) ) {
 		return $order;
 	}
-	$amount = (float) $offer['amount'] / 100;
+	$amount  = (float) $offer['amount'] / 100;
 	$item_id = $order->add_product(
 		$product,
 		1,
@@ -143,39 +164,36 @@ function aip_reii_create_pending_stripe_order_v0559( $intake, $product, $offer )
 	$order->update_meta_data( '_aip_intake_submitted_at', $intake['submitted_at'] );
 	$order->update_meta_data( '_aip_uploaded_files', $intake['files'] );
 	$order->update_meta_data( '_aip_stripe_checkout_direct', 'yes' );
-	$order->set_status( 'pending', 'Waiting for direct Stripe Checkout payment.' );
 	$order->save();
+	$order->payment_complete( $payment_intent );
+	$order->add_order_note( 'Paid through direct Stripe Checkout. Order created after payment confirmation.' );
 	return $order;
 }
 
 function aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product ) {
 	$offer = aip_reii_stripe_offer_v0559( $intake['addon'] );
-	$order = aip_reii_create_pending_stripe_order_v0559( $intake, $product, $offer );
-	if ( is_wp_error( $order ) ) {
-		return $order;
-	}
+	$token = aip_reii_store_intake_v0559( $intake, $offer );
 	$description = $offer['addon_label']
 		? 'One 10-second REii video plus ' . $offer['addon_label'] . '.'
 		: 'One 10-second AI influencer UGC video.';
 	$success_url = add_query_arg(
 		array(
-			'aip_stripe' => 'success',
-			'order_id'   => $order->get_id(),
-			'session_id' => '{CHECKOUT_SESSION_ID}',
+			'aip_stripe'   => 'success',
+			'intake_token' => $token,
+			'session_id'   => '{CHECKOUT_SESSION_ID}',
 		),
 		'https://reii.techbyleon.com/'
 	);
 	$cancel_url = add_query_arg(
 		array(
 			'aip_stripe' => 'cancelled',
-			'order_id'   => $order->get_id(),
 		),
 		'https://reii.techbyleon.com/'
 	) . '#submit-project';
 	$parameters = array(
 		'mode'                                          => 'payment',
 		'customer_email'                                => $intake['email'],
-		'client_reference_id'                           => (string) $order->get_id(),
+		'client_reference_id'                           => $token,
 		'success_url'                                   => $success_url,
 		'cancel_url'                                    => $cancel_url,
 		'line_items[0][price_data][currency]'           => 'usd',
@@ -183,29 +201,24 @@ function aip_reii_prepare_direct_stripe_checkout_v0559( $intake, $product ) {
 		'line_items[0][price_data][product_data][name]' => 'REii AI influencer UGC video',
 		'line_items[0][price_data][product_data][description]' => $description,
 		'line_items[0][quantity]'                       => '1',
-		'metadata[reii_order_id]'                       => (string) $order->get_id(),
+		'metadata[reii_intake_token]'                   => $token,
 		'metadata[reii_addon]'                          => $intake['addon'],
-		'payment_intent_data[metadata][reii_order_id]'  => (string) $order->get_id(),
 	);
 	$session = aip_reii_stripe_api_request_v0559(
 		'POST',
 		'checkout/sessions',
 		$parameters,
-		array( 'Idempotency-Key' => 'reii-order-' . $order->get_id() )
+		array( 'Idempotency-Key' => 'reii-intake-' . $token )
 	);
 	if ( is_wp_error( $session ) || empty( $session['id'] ) || empty( $session['url'] ) ) {
 		$message = is_wp_error( $session ) ? $session->get_error_message() : 'Stripe did not return a checkout link.';
-		$order->update_status( 'failed', 'Stripe Checkout could not start: ' . $message, false );
+		delete_transient( 'aip_reii_intake_' . $token );
 		return new WP_Error( 'aip_stripe_checkout_failed', $message );
 	}
-	$order->update_meta_data( '_aip_stripe_session_id', sanitize_text_field( $session['id'] ) );
-	$order->update_meta_data( '_aip_stripe_checkout_url', esc_url_raw( $session['url'] ) );
-	$order->save();
 	return array(
 		'checkout_mode' => 'stripe_redirect',
 		'checkout_url'  => esc_url_raw( $session['url'] ),
 		'email'         => $intake['email'],
-		'order_id'      => $order->get_id(),
 	);
 }
 
@@ -258,6 +271,33 @@ function aip_reii_stripe_webhook_v0559( $request ) {
 	if ( ! in_array( $type, array( 'checkout.session.completed', 'checkout.session.async_payment_succeeded' ), true ) ) {
 		return rest_ensure_response( array( 'received' => true ) );
 	}
+	if ( 'paid' !== ( $session['payment_status'] ?? '' ) || 'usd' !== strtolower( (string) ( $session['currency'] ?? '' ) ) ) {
+		return new WP_Error( 'aip_stripe_payment_unverified', 'Stripe payment is not verified.', array( 'status' => 409 ) );
+	}
+	$payment_intent = sanitize_text_field( $session['payment_intent'] ?? '' );
+
+	// New flow: intake token in metadata — no order exists yet.
+	$intake_token = sanitize_text_field( $session['metadata']['reii_intake_token'] ?? ( $session['client_reference_id'] ?? '' ) );
+	if ( $intake_token && ! is_numeric( $intake_token ) ) {
+		$transient_key = 'aip_reii_intake_' . $intake_token;
+		$stored = get_transient( $transient_key );
+		if ( ! is_array( $stored ) || empty( $stored['intake'] ) || empty( $stored['offer'] ) ) {
+			return new WP_Error( 'aip_stripe_intake_expired', 'Intake data expired or already used.', array( 'status' => 410 ) );
+		}
+		$order = aip_reii_create_paid_order_v0559( $stored['intake'], $stored['offer'], $payment_intent );
+		if ( is_wp_error( $order ) ) {
+			return new WP_Error( 'aip_stripe_order_creation_failed', $order->get_error_message(), array( 'status' => 500 ) );
+		}
+		$order->update_meta_data( '_aip_stripe_session_id', sanitize_text_field( $session['id'] ?? '' ) );
+		$order->update_meta_data( '_aip_stripe_payment_intent', $payment_intent );
+		$order->update_meta_data( '_aip_stripe_event_ids', array( sanitize_text_field( $event['id'] ) ) );
+		$order->update_meta_data( '_aip_stripe_intake_token', $intake_token );
+		$order->save();
+		delete_transient( $transient_key );
+		return rest_ensure_response( array( 'received' => true, 'order_id' => $order->get_id() ) );
+	}
+
+	// Legacy fallback: pre-existing order created before this change.
 	$order_id = absint( $session['client_reference_id'] ?? ( $session['metadata']['reii_order_id'] ?? 0 ) );
 	$order    = $order_id ? wc_get_order( $order_id ) : false;
 	if ( ! $order || 'yes' !== $order->get_meta( '_aip_stripe_checkout_direct' ) ) {
@@ -271,16 +311,16 @@ function aip_reii_stripe_webhook_v0559( $request ) {
 		return new WP_Error( 'aip_stripe_session_mismatch', 'Stripe session mismatch.', array( 'status' => 409 ) );
 	}
 	$expected_amount = (int) round( (float) $order->get_total() * 100 );
-	if ( 'paid' !== ( $session['payment_status'] ?? '' ) || $expected_amount !== (int) ( $session['amount_total'] ?? -1 ) || 'usd' !== strtolower( (string) ( $session['currency'] ?? '' ) ) ) {
-		return new WP_Error( 'aip_stripe_payment_unverified', 'Stripe payment is not verified.', array( 'status' => 409 ) );
+	if ( $expected_amount !== (int) ( $session['amount_total'] ?? -1 ) ) {
+		return new WP_Error( 'aip_stripe_payment_unverified', 'Stripe payment amount mismatch.', array( 'status' => 409 ) );
 	}
 	$processed[] = sanitize_text_field( $event['id'] );
 	$order->update_meta_data( '_aip_stripe_event_ids', array_slice( array_unique( $processed ), -20 ) );
-	$order->update_meta_data( '_aip_stripe_payment_intent', sanitize_text_field( $session['payment_intent'] ?? '' ) );
+	$order->update_meta_data( '_aip_stripe_payment_intent', $payment_intent );
 	$order->set_customer_id( 0 );
 	$order->save();
 	if ( ! $order->is_paid() ) {
-		$order->payment_complete( sanitize_text_field( $session['payment_intent'] ?? '' ) );
+		$order->payment_complete( $payment_intent );
 		$order->add_order_note( 'Paid through direct Stripe Checkout. No customer account was created.' );
 	}
 	return rest_ensure_response( array( 'received' => true, 'order_id' => $order_id ) );
@@ -309,35 +349,43 @@ function aip_reii_register_stripe_webhook_v0559() {
 add_action( 'rest_api_init', 'aip_reii_register_stripe_webhook_v0559' );
 
 /**
- * Return the checkout email only when the order and unguessable Stripe Session
- * ID match and Stripe confirms that the session was paid.
+ * Return the checkout email when the Stripe Session ID matches a paid order.
+ * Supports both the new flow (session_id lookup) and legacy (order_id lookup).
  */
 function aip_reii_stripe_confirmation_v0564( $request ) {
-	$order_id  = absint( $request->get_param( 'order_id' ) );
 	$session_id = sanitize_text_field( (string) $request->get_param( 'session_id' ) );
-	if ( ! $order_id || ! preg_match( '/^cs_(?:test_|live_)?[A-Za-z0-9]+$/', $session_id ) ) {
+	if ( ! preg_match( '/^cs_(?:test_|live_)?[A-Za-z0-9]+$/', $session_id ) ) {
 		return new WP_Error( 'aip_stripe_confirmation_invalid', 'Invalid confirmation details.', array( 'status' => 400 ) );
-	}
-
-	$order = wc_get_order( $order_id );
-	if ( ! $order || 'yes' !== $order->get_meta( '_aip_stripe_checkout_direct' ) ) {
-		return new WP_Error( 'aip_stripe_confirmation_missing', 'REii order not found.', array( 'status' => 404 ) );
-	}
-	if ( ! hash_equals( (string) $order->get_meta( '_aip_stripe_session_id' ), $session_id ) ) {
-		return new WP_Error( 'aip_stripe_confirmation_mismatch', 'Confirmation details do not match.', array( 'status' => 404 ) );
 	}
 
 	$session = aip_reii_stripe_api_request_v0559( 'GET', 'checkout/sessions/' . rawurlencode( $session_id ) );
 	if ( is_wp_error( $session ) ) {
 		return new WP_Error( 'aip_stripe_confirmation_unavailable', 'Confirmation is temporarily unavailable.', array( 'status' => 502 ) );
 	}
-	$session_order_id = absint( $session['client_reference_id'] ?? ( $session['metadata']['reii_order_id'] ?? 0 ) );
-	if ( $order_id !== $session_order_id || 'paid' !== ( $session['payment_status'] ?? '' ) ) {
+	if ( 'paid' !== ( $session['payment_status'] ?? '' ) ) {
 		return new WP_Error( 'aip_stripe_confirmation_unverified', 'Payment is not verified.', array( 'status' => 409 ) );
 	}
 
+	// Try to find the order by session ID meta (works for both new and legacy flows).
+	$order = false;
+	$order_id = absint( $request->get_param( 'order_id' ) );
+	if ( $order_id ) {
+		$candidate = wc_get_order( $order_id );
+		if ( $candidate && 'yes' === $candidate->get_meta( '_aip_stripe_checkout_direct' ) && hash_equals( (string) $candidate->get_meta( '_aip_stripe_session_id' ), $session_id ) ) {
+			$order = $candidate;
+		}
+	}
+	if ( ! $order ) {
+		$orders = wc_get_orders( array(
+			'meta_key'   => '_aip_stripe_session_id',
+			'meta_value' => $session_id,
+			'limit'      => 1,
+		) );
+		$order = ! empty( $orders ) ? $orders[0] : false;
+	}
+
 	$email = sanitize_email( $session['customer_details']['email'] ?? ( $session['customer_email'] ?? '' ) );
-	if ( ! $email || ! is_email( $email ) ) {
+	if ( ( ! $email || ! is_email( $email ) ) && $order ) {
 		$email = sanitize_email( $order->get_meta( '_aip_intake_email' ) ?: $order->get_billing_email() );
 	}
 	if ( ! $email || ! is_email( $email ) ) {

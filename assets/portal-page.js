@@ -647,11 +647,10 @@
     modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker"><span class="aip-confirmation-step">03 of 03</span><span class="aip-confirmation-label">Order confirmed</span></small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to <strong id="aip-confirmation-email">the email used at Stripe Checkout</strong>. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Create another REii video</button><span>Have another product ready?</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>We&rsquo;ll keep you updated.</strong><br>Your receipt and private delivery link will arrive by email.</p><span class="aip-confirmation-version">REii Commerce v0.5.86</span></aside></div></section>';
     document.body.appendChild(modal);
     document.body.classList.add('aip-payment-open');
-    var orderId=params.get('order_id')||'';
     var sessionId=params.get('session_id')||'';
     var emailTarget=modal.querySelector('#aip-confirmation-email');
-    if(orderId&&sessionId&&emailTarget){
-      var confirmationUrl='/wp-json/aip/v1/stripe-confirmation?order_id='+encodeURIComponent(orderId)+'&session_id='+encodeURIComponent(sessionId);
+    if(sessionId&&emailTarget){
+      var confirmationUrl='/wp-json/aip/v1/stripe-confirmation?session_id='+encodeURIComponent(sessionId);
       fetch(confirmationUrl,{credentials:'same-origin',headers:{'Accept':'application/json'}}).then(function(response){
         if(!response.ok)throw new Error('Confirmation email unavailable');
         return response.json();
@@ -668,7 +667,7 @@
       }).catch(function(){});
     }
     var onKeydown;
-    var close=function(){document.removeEventListener('keydown',onKeydown);modal.remove();document.body.classList.remove('aip-payment-open');var clean=new URL(window.location.href);clean.searchParams.delete('aip_stripe');clean.searchParams.delete('order_id');clean.searchParams.delete('session_id');window.history.replaceState({},'',clean.pathname+clean.search+clean.hash);};
+    var close=function(){document.removeEventListener('keydown',onKeydown);modal.remove();document.body.classList.remove('aip-payment-open');var clean=new URL(window.location.href);clean.searchParams.delete('aip_stripe');clean.searchParams.delete('order_id');clean.searchParams.delete('intake_token');clean.searchParams.delete('session_id');window.history.replaceState({},'',clean.pathname+clean.search+clean.hash);};
     modal.querySelector('.aip-payment-backdrop').addEventListener('click',close);
     var closeButton=modal.querySelector('.aip-confirmation-close');
     var createAnotherButton=modal.querySelector('.aip-confirmation-actions button');
