@@ -2,7 +2,7 @@
 /**
  * Plugin Name: REii Commerce
  * Description: Direct Stripe ordering and private delivery for REii AI influencer UGC videos.
- * Version: 0.5.85
+ * Version: 0.5.86
  * Author: Tech by Leon
  * Requires Plugins: woocommerce
  * Update URI: https://github.com/whoisleon/on-model-commerce
@@ -572,7 +572,7 @@ function aip_reii_embedded_checkout_compat_styles() {
 	body.woocommerce-checkout.aip-embedded-checkout #wpadminbar,body.woocommerce-checkout.aip-embedded-checkout #masthead,body.woocommerce-checkout.aip-embedded-checkout #colophon,body.woocommerce-checkout.aip-embedded-checkout .post-title-wrapper{display:none!important}html{margin-top:0!important}body.woocommerce-checkout.aip-embedded-checkout{background:#f8f7fb!important;margin:0!important}body.woocommerce-checkout.aip-embedded-checkout .main-container,body.woocommerce-checkout.aip-embedded-checkout .page-body{background:#f8f7fb!important;padding:0!important}body.woocommerce-checkout.aip-embedded-checkout .row-parent{margin:0 auto!important;max-width:620px!important;padding:22px 20px 36px!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-billing-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-shipping-fields,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-additional-fields,body.woocommerce-checkout.aip-embedded-checkout #customer_details,body.woocommerce-checkout.aip-embedded-checkout #order_review_heading,body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-login-toggle,body.woocommerce-checkout.aip-embedded-checkout form.woocommerce-form-login,body.woocommerce-checkout.aip-embedded-checkout .wc-block-checkout__login-prompt,body.woocommerce-checkout.aip-embedded-checkout .wc-block-components-checkout-returning-customer{display:none!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce{display:flex!important;flex-direction:column!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout.woocommerce-checkout,body.woocommerce-checkout.aip-embedded-checkout #order_review,body.woocommerce-checkout.aip-embedded-checkout #payment{display:contents!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-element{order:10!important}body.woocommerce-checkout.aip-embedded-checkout #wc-stripe-express-checkout-button-separator{order:20!important}body.woocommerce-checkout.aip-embedded-checkout .payment_methods{margin:0 0 18px!important;order:30!important}body.woocommerce-checkout.aip-embedded-checkout .shop_table.woocommerce-checkout-review-order-table{background:#fff!important;border:1px solid #e5dfea!important;border-radius:16px!important;box-shadow:0 12px 35px rgba(35,27,45,.06)!important;margin:0 0 18px!important;order:40!important;overflow:hidden!important;padding:0!important;width:100%!important}body.woocommerce-checkout.aip-embedded-checkout .woocommerce-form-coupon-toggle{margin:0 0 10px!important;order:50!important}body.woocommerce-checkout.aip-embedded-checkout form.checkout_coupon{margin:0 0 18px!important;order:51!important}body.woocommerce-checkout.aip-embedded-checkout .place-order{margin-top:0!important;order:60!important}body.woocommerce-checkout.aip-embedded-checkout button,body.woocommerce-checkout.aip-embedded-checkout .button{min-height:52px!important}@media(max-width:600px){body.woocommerce-checkout.aip-embedded-checkout .row-parent{padding:16px 14px 30px!important}}
 	';
 	$css .= aip_reii_checkout_theme_css_v0551();
-	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.85' );
+	wp_register_style( 'aip-reii-embedded-compat', false, array(), '0.5.86' );
 	wp_enqueue_style( 'aip-reii-embedded-compat' );
 	wp_add_inline_style( 'aip-reii-embedded-compat', $css );
 }
@@ -1469,7 +1469,7 @@ if ( class_exists( 'AIP_On_Model_Commerce_GitHub', false ) ) {
 }
 
 final class AIP_On_Model_Commerce_GitHub {
-	const VERSION     = '0.5.85';
+	const VERSION     = '0.5.86';
 	const PRODUCT_SKU = 'on-model-content-order';
 	const FORM_TITLE  = 'On-Model Content Order Form';
 	const BASE_PRICE  = '10';
@@ -1800,9 +1800,16 @@ final class AIP_On_Model_Commerce_GitHub {
 			'aip/v1',
 			'/orders/(?P<id>\d+)',
 			array(
-				'methods'             => WP_REST_Server::READABLE,
-				'callback'            => array( __CLASS__, 'api_order' ),
-				'permission_callback' => $permission,
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'api_order' ),
+					'permission_callback' => $permission,
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( __CLASS__, 'api_order_delete' ),
+					'permission_callback' => $permission,
+				),
 			)
 		);
 		register_rest_route(
@@ -1980,26 +1987,78 @@ final class AIP_On_Model_Commerce_GitHub {
 		return rest_ensure_response( self::api_order_object( $order ) );
 	}
 
+	public static function api_order_delete( $request ) {
+		$order = self::api_find_order( $request );
+		if ( is_wp_error( $order ) ) {
+			return $order;
+		}
+		$force = filter_var( $request->get_param( 'force' ) ?? true, FILTER_VALIDATE_BOOLEAN );
+		$id    = $order->get_id();
+		$res   = $order->delete( $force );
+		if ( ! $res ) {
+			return new WP_Error( 'aip_delete_failed', 'Failed to delete order.', array( 'status' => 500 ) );
+		}
+		return rest_ensure_response( array(
+			'id'      => $id,
+			'deleted' => true,
+			'trashed' => ! $force,
+			'status'  => 'success',
+		) );
+	}
+
+	public static function is_public_hosted_url( $url ) {
+		if ( ! is_scalar( $url ) ) {
+			return false;
+		}
+		$clean = esc_url_raw( trim( (string) $url ) );
+		if ( ! $clean || ! preg_match( '#^https?://#i', $clean ) ) {
+			return false;
+		}
+		$parts = wp_parse_url( $clean );
+		$host  = strtolower( (string) ( $parts['host'] ?? '' ) );
+		return $host && ! in_array( $host, array( 'localhost', '127.0.0.1', '0.0.0.0', '::1' ), true );
+	}
+
 	public static function api_order_deliver( $request ) {
 		$order = self::api_find_order( $request );
 		if ( is_wp_error( $order ) ) {
 			return $order;
 		}
-		$json   = $request->get_json_params() ?: array();
-		$images = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $json['image_urls'] ?? $request->get_param( 'image_urls' ) ) ) ) );
-		$videos = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $json['video_urls'] ?? $request->get_param( 'video_urls' ) ) ) ) );
+		$json       = $request->get_json_params() ?: array();
+		$raw_images = (array) ( $json['image_urls'] ?? $request->get_param( 'image_urls' ) );
+		$raw_videos = (array) ( $json['video_urls'] ?? $request->get_param( 'video_urls' ) );
+		$images     = array();
+		foreach ( $raw_images as $u ) {
+			if ( self::is_public_hosted_url( $u ) ) {
+				$images[] = esc_url_raw( trim( (string) $u ) );
+			}
+		}
+		$videos = array();
+		foreach ( $raw_videos as $u ) {
+			if ( self::is_public_hosted_url( $u ) ) {
+				$videos[] = esc_url_raw( trim( (string) $u ) );
+			}
+		}
 
 		// If media URLs were not passed directly in payload, fallback to existing saved deliverables
 		if ( empty( $images ) && empty( $videos ) ) {
 			$saved = $order->get_meta( '_aip_deliverables' );
 			if ( is_array( $saved ) ) {
-				$images = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $saved['images'] ?? [] ) ) ) );
-				$videos = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $saved['videos'] ?? [] ) ) ) );
+				foreach ( (array) ( $saved['images'] ?? [] ) as $u ) {
+					if ( self::is_public_hosted_url( $u ) ) {
+						$images[] = esc_url_raw( trim( (string) $u ) );
+					}
+				}
+				foreach ( (array) ( $saved['videos'] ?? [] ) as $u ) {
+					if ( self::is_public_hosted_url( $u ) ) {
+						$videos[] = esc_url_raw( trim( (string) $u ) );
+					}
+				}
 			}
 		}
 
 		if ( empty( $images ) && empty( $videos ) ) {
-			return new WP_Error( 'aip_missing_media', 'An image or video deliverable is required.', array( 'status' => 400 ) );
+			return new WP_Error( 'aip_missing_media', 'Valid public image or video deliverable URLs (http/https) are required.', array( 'status' => 400 ) );
 		}
 
 		$raw_status    = ! empty( $json['status'] ) ? $json['status'] : $request->get_param( 'status' );
@@ -2366,28 +2425,65 @@ final class AIP_On_Model_Commerce_GitHub {
 			status_header( 404 );
 			exit;
 		}
-		$file          = $files[ $file_key ];
-		$attachment_id = attachment_url_to_postid( $file['url'] );
-		$path          = $attachment_id ? get_attached_file( $attachment_id ) : '';
-		if ( ! $path || ! is_readable( $path ) ) {
+		$file    = $files[ $file_key ];
+		$raw_url = trim( (string) ( $file['url'] ?? '' ) );
+		if ( ! $raw_url ) {
 			status_header( 404 );
 			exit;
 		}
+
+		$attachment_id = attachment_url_to_postid( $raw_url );
+		$path          = $attachment_id ? get_attached_file( $attachment_id ) : '';
+
+		// Fallback 1: Resolve directly from wp-content/uploads/ basedir
+		if ( ( ! $path || ! is_readable( $path ) ) && function_exists( 'wp_upload_dir' ) ) {
+			$upload_dir = wp_upload_dir();
+			$base_url   = $upload_dir['baseurl'] ?? '';
+			$base_dir   = $upload_dir['basedir'] ?? '';
+			if ( $base_url && $base_dir && strpos( $raw_url, $base_url ) === 0 ) {
+				$rel = ltrim( substr( $raw_url, strlen( $base_url ) ), '/' );
+				$candidate = $base_dir . '/' . $rel;
+				if ( is_readable( $candidate ) ) {
+					$path = $candidate;
+				}
+			} elseif ( $base_dir && false !== strpos( $raw_url, '/wp-content/uploads/' ) ) {
+				$parts = explode( '/wp-content/uploads/', $raw_url, 2 );
+				if ( ! empty( $parts[1] ) ) {
+					$candidate = $base_dir . '/' . ltrim( $parts[1], '/' );
+					if ( is_readable( $candidate ) ) {
+						$path = $candidate;
+					}
+				}
+			}
+		}
+
 		if ( 'download' === $mode ) {
 			self::record_download( $order, $file_key );
 		}
-		$filename = sanitize_file_name( basename( $path ) );
-		$filetype = wp_check_filetype( $filename );
-		nocache_headers();
-		header( 'X-Robots-Tag: noindex, nofollow', true );
-		header( 'X-Content-Type-Options: nosniff', true );
-		header( 'Content-Type: ' . ( $filetype['type'] ?: 'application/octet-stream' ) );
-		header( 'Content-Length: ' . filesize( $path ) );
-		header( 'Content-Disposition: ' . ( 'download' === $mode ? 'attachment' : 'inline' ) . '; filename="' . $filename . '"' );
-		while ( ob_get_level() ) {
-			ob_end_clean();
+
+		if ( $path && is_readable( $path ) ) {
+			$filename = sanitize_file_name( basename( $path ) );
+			$filetype = wp_check_filetype( $filename );
+			nocache_headers();
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			header( 'X-Content-Type-Options: nosniff', true );
+			header( 'Content-Type: ' . ( $filetype['type'] ?: 'application/octet-stream' ) );
+			header( 'Content-Length: ' . filesize( $path ) );
+			header( 'Content-Disposition: ' . ( 'download' === $mode ? 'attachment' : 'inline' ) . '; filename="' . $filename . '"' );
+			while ( ob_get_level() ) {
+				ob_end_clean();
+			}
+			readfile( $path );
+			exit;
 		}
-		readfile( $path );
+
+		// Fallback 2: If the file is a valid remote URL, redirect so the browser can load/download it
+		if ( preg_match( '#^https?://#i', $raw_url ) ) {
+			wp_redirect( $raw_url, 302 );
+			exit;
+		}
+
+		status_header( 404 );
 		exit;
 	}
 
@@ -3582,10 +3678,20 @@ final class AIP_On_Model_Commerce_GitHub {
 		}
 
 		$saved  = $order->get_meta( '_aip_deliverables' );
-		$images = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $saved['images'] ?? [] ) ) ) );
-		$videos = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $saved['videos'] ?? [] ) ) ) );
+		$images = array();
+		foreach ( (array) ( $saved['images'] ?? [] ) as $u ) {
+			if ( self::is_public_hosted_url( $u ) ) {
+				$images[] = esc_url_raw( trim( (string) $u ) );
+			}
+		}
+		$videos = array();
+		foreach ( (array) ( $saved['videos'] ?? [] ) as $u ) {
+			if ( self::is_public_hosted_url( $u ) ) {
+				$videos[] = esc_url_raw( trim( (string) $u ) );
+			}
+		}
 		if ( empty( $images ) && empty( $videos ) ) {
-			wp_send_json_error( array( 'message' => 'No deliverables available to send' ), 400 );
+			wp_send_json_error( array( 'message' => 'No valid public deliverables available to send (must be hosted http/https URLs)' ), 400 );
 		}
 
 		$token = $order->get_meta( '_aip_delivery_token' );

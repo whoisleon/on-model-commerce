@@ -2,7 +2,7 @@
 Contributors: whoisleon
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 0.5.85
+Stable tag: 0.5.86
 License: Proprietary
 
 Customer-facing direct Stripe project intake, production workflow, private delivery library, and GitHub-powered updates for Tech by Leon.
@@ -12,6 +12,9 @@ Customer-facing direct Stripe project intake, production workflow, private deliv
 Install on-model-commerce.zip once through Plugins > Add New Plugin > Upload Plugin. The permanent installation directory is on-model-commerce-github so it cannot collide with the site's orphaned legacy directory. Future versions appear in the standard WordPress plugin updater.
 
 == Changelog ==
+
+= 0.5.86 =
+* Add public URL validation and multi-tier streaming fallbacks to prevent deliverable attachment failures on customer content library.
 
 = 0.5.85 =
 * Add Create Another Video button to the top banner of the customer content library.
