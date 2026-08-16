@@ -410,7 +410,7 @@ function aip_reii_email_order_item_thumbnail_v0562( $image, $item ) {
 	$plugin_file = dirname( __DIR__ ) . '/on-model-commerce.php';
 	$icon_url    = add_query_arg(
 		'ver',
-		'0.5.86',
+		'0.5.87',
 		plugins_url( 'assets/reii-video-email-icon.png', $plugin_file )
 	);
 
