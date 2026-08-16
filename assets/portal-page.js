@@ -31,6 +31,78 @@
     return {submit:submit,shell:shell,route:route};
   }
 
+  var DRAFT_STORAGE_KEY='aip_reii_intake_draft';
+
+  function saveDraft(form){
+    if(!form)form=document.querySelector('.aip-order-modal form, .aip-native-intake, form');
+    if(!form)return;
+    try{
+      var email=form.querySelector('input[name="your-email"]');
+      var method=form.querySelector('input[name="source-method"]:checked');
+      var reference=form.querySelector('input[name="product-reference"]');
+      var storefront=form.querySelector('input[name="aip-addon-storefront"]');
+      var addon=form.querySelector('input[name="aip-addon"]');
+      var sourceOrder=form.querySelector('input[name="aip-source-order"]');
+      var rights=form.querySelector('input[name="rights-confirmed"]');
+
+      var data={
+        email:email?email.value:'',
+        method:method?method.value:'Amazon link / ASIN',
+        reference:reference?reference.value:'',
+        storefront:storefront?Boolean(storefront.checked):false,
+        addon:addon?addon.value:'',
+        sourceOrder:sourceOrder?sourceOrder.value:'',
+        rights:rights?Boolean(rights.checked):false
+      };
+      var serialized=JSON.stringify(data);
+      localStorage.setItem(DRAFT_STORAGE_KEY,serialized);
+      sessionStorage.setItem(DRAFT_STORAGE_KEY,serialized);
+    }catch(e){}
+  }
+
+  function restoreDraft(form){
+    if(!form)form=document.querySelector('.aip-order-modal form, .aip-native-intake, form');
+    if(!form)return;
+    try{
+      var raw=localStorage.getItem(DRAFT_STORAGE_KEY)||sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if(!raw)return;
+      var data=JSON.parse(raw);
+      if(!data||typeof data!=='object')return;
+
+      var email=form.querySelector('input[name="your-email"]');
+      if(email&&data.email&&!email.value)email.value=data.email;
+
+      if(data.method){
+        var methodInput=form.querySelector('input[name="source-method"][value="'+data.method+'"]');
+        if(methodInput)methodInput.checked=true;
+      }
+
+      var reference=form.querySelector('input[name="product-reference"]');
+      if(reference&&data.reference&&!reference.value)reference.value=data.reference;
+
+      var storefront=form.querySelector('input[name="aip-addon-storefront"]');
+      if(storefront&&typeof data.storefront==='boolean'){
+        storefront.checked=data.storefront;
+      }
+
+      var addon=form.querySelector('input[name="aip-addon"]');
+      if(addon&&data.addon&&!addon.value)addon.value=data.addon;
+
+      var sourceOrder=form.querySelector('input[name="aip-source-order"]');
+      if(sourceOrder&&data.sourceOrder&&!sourceOrder.value)sourceOrder.value=data.sourceOrder;
+
+      var rights=form.querySelector('input[name="rights-confirmed"]');
+      if(rights&&data.rights)rights.checked=true;
+    }catch(e){}
+  }
+
+  function clearDraft(){
+    try{
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    }catch(e){}
+  }
+
   function setSubmitHandoff(form,busy){
     var handoff=ensureSubmitHandoff(form);
     if(!handoff)return;
@@ -153,6 +225,7 @@
       } else if(storefrontAddon&&!storefrontAddon.checked&&hiddenAddon&&hiddenAddon.value==='amazon-storefront'){
         hiddenAddon.value='';
       }
+      saveDraft(form);
       var payload=new FormData(form);
       payload.append('action','aip_reii_prepare_checkout');
       payload.append('nonce',cfg.nonce);
@@ -176,6 +249,10 @@
           if(error)error.textContent=problem&&problem.message?problem.message:'Checkout could not prepare this order. Please try again.';
         });
     },true);
+    portal.addEventListener('input',function(e){
+      var form=e.target&&e.target.closest?e.target.closest('form'):portal.querySelector('form');
+      if(form)saveDraft(form);
+    });
     portal.addEventListener('change',function(e){
       if(e.target&&e.target.name==='aip-addon-storefront'){
         var form=e.target.closest('form')||portal.querySelector('form');
@@ -194,7 +271,10 @@
           }
         }
       }
+      var f=e.target&&e.target.closest?e.target.closest('form'):portal.querySelector('form');
+      if(f)saveDraft(f);
     });
+    restoreDraft(initialForm);
     sync();
   }
 
@@ -311,6 +391,16 @@
   function openModal(){
     var modal=document.querySelector('.aip-order-modal');
     if(modal){
+      var form=modal.querySelector('form');
+      restoreDraft(form);
+      var syncFn=modal.querySelector('input[name="source-method"]:checked');
+      if(syncFn){
+        var upload=syncFn.value==='Upload product files';
+        var amazon=modal.querySelector('[data-aip-source="amazon"]');
+        var files=modal.querySelector('[data-aip-source="upload"]');
+        if(amazon)amazon.hidden=upload;
+        if(files)files.hidden=!upload;
+      }
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden','false');
       document.body.classList.add('aip-order-open');
@@ -417,12 +507,14 @@
     var params=new URLSearchParams(window.location.search||'');
     var state=params.get('aip_stripe')||'';
     if(state==='cancelled'){
+      restoreDraft();
       openModal();
       var error=document.querySelector('.aip-order-modal .aip-form-error');
       if(error)error.textContent='Payment was canceled. Your card was not charged.';
       return;
     }
     if(state!=='success')return;
+    clearDraft();
     var previous=document.querySelector('.aip-payment-modal');
     if(previous)previous.remove();
     var modal=document.createElement('div');
