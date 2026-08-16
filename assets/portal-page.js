@@ -140,6 +140,19 @@
       form.dataset.aipSubmitting='1';
       if(error)error.textContent='';
       setSubmitHandoff(form,true);
+      var storefrontAddon=form.querySelector('input[name="aip-addon-storefront"]');
+      var hiddenAddon=form.querySelector('input[name="aip-addon"]');
+      if(storefrontAddon&&storefrontAddon.checked){
+        if(!hiddenAddon){
+          hiddenAddon=document.createElement('input');
+          hiddenAddon.type='hidden';
+          hiddenAddon.name='aip-addon';
+          form.appendChild(hiddenAddon);
+        }
+        hiddenAddon.value='amazon-storefront';
+      } else if(storefrontAddon&&!storefrontAddon.checked&&hiddenAddon&&hiddenAddon.value==='amazon-storefront'){
+        hiddenAddon.value='';
+      }
       var payload=new FormData(form);
       payload.append('action','aip_reii_prepare_checkout');
       payload.append('nonce',cfg.nonce);
@@ -163,6 +176,25 @@
           if(error)error.textContent=problem&&problem.message?problem.message:'Checkout could not prepare this order. Please try again.';
         });
     },true);
+    portal.addEventListener('change',function(e){
+      if(e.target&&e.target.name==='aip-addon-storefront'){
+        var form=e.target.closest('form')||portal.querySelector('form');
+        if(form){
+          var hidden=form.querySelector('input[name="aip-addon"]');
+          if(!hidden){
+            hidden=document.createElement('input');
+            hidden.type='hidden';
+            hidden.name='aip-addon';
+            form.appendChild(hidden);
+          }
+          if(e.target.checked){
+            hidden.value='amazon-storefront';
+          }else if(hidden.value==='amazon-storefront'){
+            hidden.value='';
+          }
+        }
+      }
+    });
     sync();
   }
 
