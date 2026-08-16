@@ -124,6 +124,55 @@
     }
   }
 
+  function extractAsin(text){
+    if(!text)return '';
+    var clean=String(text).trim();
+    var match=clean.match(/(?:dp|gp\/product|asin|product|d|o)\/([B0-9][A-Z0-9]{9})/i);
+    if(match&&match[1])return match[1].toUpperCase();
+    match=clean.match(/\b([B0-9][A-Z0-9]{9})\b/i);
+    if(match&&match[1])return match[1].toUpperCase();
+    return '';
+  }
+
+  function syncStorefront(ctx){
+    var root=ctx||document.querySelector('.aip-order-modal, .aip-portal');
+    if(!root)return;
+    var selected=root.querySelector('input[name="source-method"]:checked');
+    var isUpload=selected?selected.value==='Upload product files':false;
+    var refInput=root.querySelector('input[name="product-reference"]');
+    var refValue=refInput?refInput.value.trim():'';
+    var card=root.querySelector('.aip-storefront-addon-card');
+    var checkbox=root.querySelector('input[name="aip-addon-storefront"]');
+    var reasonBox=root.querySelector('.aip-storefront-disabled-reason');
+    var reasonText=reasonBox?reasonBox.querySelector('em'):null;
+    var hiddenAddon=root.querySelector('input[name="aip-addon"]');
+    if(!card||!checkbox)return;
+
+    var hasAsin=!isUpload&&Boolean(refValue&&extractAsin(refValue));
+    if(hasAsin){
+      card.classList.remove('is-disabled');
+      checkbox.disabled=false;
+      if(reasonBox)reasonBox.hidden=true;
+    }else{
+      card.classList.add('is-disabled');
+      checkbox.checked=false;
+      checkbox.disabled=true;
+      if(hiddenAddon&&hiddenAddon.value==='amazon-storefront')hiddenAddon.value='';
+      if(reasonBox){
+        reasonBox.hidden=false;
+        if(reasonText){
+          if(isUpload){
+            reasonText.innerHTML='Storefront posting requires an Amazon listing (ASIN). Select &ldquo;Amazon link / ASIN&rdquo; above to enable.';
+          }else if(!refValue){
+            reasonText.innerHTML='Please paste an Amazon link or 10-character ASIN above to enable Storefront posting.';
+          }else{
+            reasonText.innerHTML='Please enter a valid Amazon product link or 10-character ASIN above to enable Storefront posting.';
+          }
+        }
+      }
+    }
+  }
+
   function initProductSource(portal){
     if(!portal||portal.dataset.sourceReady==='1')return;
     portal.dataset.sourceReady='1';
@@ -165,55 +214,6 @@
       if(nativeForm)nativeForm.addEventListener('reset',clearFormFiles);
     }
     }
-    function extractAsin(text){
-      if(!text)return '';
-      var clean=String(text).trim();
-      var match=clean.match(/(?:dp|gp\/product|asin|product|d|o)\/([B0-9][A-Z0-9]{9})/i);
-      if(match&&match[1])return match[1].toUpperCase();
-      match=clean.match(/\b([B0-9][A-Z0-9]{9})\b/i);
-      if(match&&match[1])return match[1].toUpperCase();
-      return '';
-    }
-
-    function syncStorefront(ctx){
-      var root=ctx||portal;
-      if(!root)return;
-      var selected=root.querySelector('input[name="source-method"]:checked');
-      var isUpload=selected?selected.value==='Upload product files':false;
-      var refInput=root.querySelector('input[name="product-reference"]');
-      var refValue=refInput?refInput.value.trim():'';
-      var card=root.querySelector('.aip-storefront-addon-card');
-      var checkbox=root.querySelector('input[name="aip-addon-storefront"]');
-      var reasonBox=root.querySelector('.aip-storefront-disabled-reason');
-      var reasonText=reasonBox?reasonBox.querySelector('em'):null;
-      var hiddenAddon=root.querySelector('input[name="aip-addon"]');
-      if(!card||!checkbox)return;
-
-      var hasAsin=!isUpload&&Boolean(refValue&&extractAsin(refValue));
-      if(hasAsin){
-        card.classList.remove('is-disabled');
-        checkbox.disabled=false;
-        if(reasonBox)reasonBox.hidden=true;
-      }else{
-        card.classList.add('is-disabled');
-        checkbox.checked=false;
-        checkbox.disabled=true;
-        if(hiddenAddon&&hiddenAddon.value==='amazon-storefront')hiddenAddon.value='';
-        if(reasonBox){
-          reasonBox.hidden=false;
-          if(reasonText){
-            if(isUpload){
-              reasonText.innerHTML='Storefront posting requires an Amazon listing (ASIN). Select &ldquo;Amazon link / ASIN&rdquo; above to enable.';
-            }else if(!refValue){
-              reasonText.innerHTML='Please paste an Amazon link or 10-character ASIN above to enable Storefront posting.';
-            }else{
-              reasonText.innerHTML='Please enter a valid Amazon product link or 10-character ASIN above to enable Storefront posting.';
-            }
-          }
-        }
-      }
-    }
-
     function sync(){
       var selected=portal.querySelector('input[name="source-method"]:checked');
       var upload=selected?selected.value==='Upload product files':false;
@@ -455,39 +455,7 @@
         if(amazon)amazon.hidden=upload;
         if(files)files.hidden=!upload;
       }
-      var refInput=modal.querySelector('input[name="product-reference"]');
-      var refValue=refInput?refInput.value.trim():'';
-      var isUpload=syncFn?syncFn.value==='Upload product files':false;
-      var card=modal.querySelector('.aip-storefront-addon-card');
-      var checkbox=modal.querySelector('input[name="aip-addon-storefront"]');
-      var reasonBox=modal.querySelector('.aip-storefront-disabled-reason');
-      var reasonText=reasonBox?reasonBox.querySelector('em'):null;
-      var hiddenAddon=modal.querySelector('input[name="aip-addon"]');
-      if(card&&checkbox){
-        var hasAsin=!isUpload&&Boolean(refValue&&extractAsin(refValue));
-        if(hasAsin){
-          card.classList.remove('is-disabled');
-          checkbox.disabled=false;
-          if(reasonBox)reasonBox.hidden=true;
-        }else{
-          card.classList.add('is-disabled');
-          checkbox.checked=false;
-          checkbox.disabled=true;
-          if(hiddenAddon&&hiddenAddon.value==='amazon-storefront')hiddenAddon.value='';
-          if(reasonBox){
-            reasonBox.hidden=false;
-            if(reasonText){
-              if(isUpload){
-                reasonText.innerHTML='Storefront posting requires an Amazon listing (ASIN). Select &ldquo;Amazon link / ASIN&rdquo; above to enable.';
-              }else if(!refValue){
-                reasonText.innerHTML='Please paste an Amazon link or 10-character ASIN above to enable Storefront posting.';
-              }else{
-                reasonText.innerHTML='Please enter a valid Amazon product link or 10-character ASIN above to enable Storefront posting.';
-              }
-            }
-          }
-        }
-      }
+      syncStorefront(modal);
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden','false');
       document.body.classList.add('aip-order-open');
@@ -675,7 +643,7 @@
     modal.setAttribute('role','dialog');
     modal.setAttribute('aria-modal','true');
     modal.setAttribute('aria-labelledby','aip-payment-title');
-    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker">Order confirmed &middot; 03 of 03</small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to <strong id="aip-confirmation-email">the email used at Stripe Checkout</strong>. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Create another REii video</button><span>Have another product ready?</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>We&rsquo;ll keep you updated.</strong><br>Your receipt and private delivery link will arrive by email.</p><span class="aip-confirmation-version">REii Commerce v0.5.80</span></aside></div></section>';
+    modal.innerHTML='<button class="aip-payment-backdrop" type="button" tabindex="-1" aria-label="Close order confirmation"></button><section class="aip-payment-panel aip-uncode-confirmation-panel"><header class="aip-confirmation-topbar"><span class="aip-confirmation-brand">REii<i>.</i></span><div class="aip-confirmation-meta"><span class="aip-confirmation-status">Payment received</span><button class="aip-confirmation-close" type="button" aria-label="Close order confirmation">&times;</button></div></header><div class="aip-confirmation-body"><main class="aip-confirmation-message"><small class="aip-confirmation-kicker">Order confirmed &middot; 03 of 03</small><h2 id="aip-payment-title">Thank you for creating with REii.</h2><p>Your receipt and private delivery updates will be sent to <strong id="aip-confirmation-email">the email used at Stripe Checkout</strong>. No account or login is required.</p><div class="aip-confirmation-actions"><button type="button">Create another REii video</button><span>Have another product ready?</span></div></main><aside class="aip-confirmation-next" aria-label="What happens next"><small>What happens next</small><ol><li><b>01</b><strong>Receipt</strong><span>Payment confirmation by email.</span></li><li><b>02</b><strong>Creation</strong><span>REii produces your influencer video.</span></li><li><b>03</b><strong>Delivery</strong><span>Your private link arrives by email.</span></li></ol><p><strong>We&rsquo;ll keep you updated.</strong><br>Your receipt and private delivery link will arrive by email.</p><span class="aip-confirmation-version">REii Commerce v0.5.81</span></aside></div></section>';
     document.body.appendChild(modal);
     document.body.classList.add('aip-payment-open');
     var orderId=params.get('order_id')||'';
