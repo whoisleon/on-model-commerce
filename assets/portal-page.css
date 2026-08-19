@@ -357,3 +357,15 @@ label.aip-storefront-addon-card,
     float: none !important;
     flex: 0 0 20px !important;
 }
+
+/* FIX STOREFRONT CARD WRAP WHEN DISABLED */
+.aip-order-dialog .aip-native-intake label.aip-storefront-addon-card,
+.aip-order-dialog .aip-checkout-form label.aip-storefront-addon-card {
+    flex-wrap: wrap !important;
+}
+
+.aip-storefront-disabled-reason {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    margin-top: 14px !important;
+}
