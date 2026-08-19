@@ -802,3 +802,15 @@
     window.setTimeout(function(){closeButton.focus();},50);
   }
 })();
+
+  // Robust click handler for blog/wardrobe links
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest ? e.target.closest('a') : null;
+    if (link) {
+      var href = link.getAttribute('href') || '';
+      if (href === 'https://reii.techbyleon.com/blog/' || href === '/blog/' || href.indexOf('/blog') !== -1) {
+        e.stopPropagation();
+        window.location.href = 'https://reii.techbyleon.com/blog/';
+      }
+    }
+  }, true);

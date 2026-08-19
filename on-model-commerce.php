@@ -48,7 +48,7 @@ add_filter( 'post_link', 'aip_reii_public_post_link_v0561', 20, 2 );
 
 function aip_reii_public_category_link_v0561( $url, $term_id ) {
 	return aip_reii_category_id_v0561() === (int) $term_id
-		? trailingslashit( aip_reii_public_origin_v0561() )
+		? trailingslashit( aip_reii_public_origin_v0561() . '/blog' )
 		: $url;
 }
 add_filter( 'category_link', 'aip_reii_public_category_link_v0561', 20, 2 );
@@ -86,8 +86,15 @@ function aip_reii_route_public_posts_v0561() {
 
 	$host = strtolower( (string) wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) );
 	$host = preg_replace( '/:\d+$/', '', $host );
+	$request_uri = (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '/' );
+	$path        = wp_parse_url( $request_uri, PHP_URL_PATH );
+	$path        = '/' . trim( (string) $path, '/' ) . ( '/' === $path ? '' : '/' );
+
 	if ( is_category( aip_reii_category_id_v0561() ) ) {
-		wp_safe_redirect( trailingslashit( aip_reii_public_origin_v0561() ), 301, 'REii Commerce' );
+		if ( 'reii.techbyleon.com' === $host && ( '/blog/' === $path || '/blog' === $path || preg_match( '#^/blog/page/\d+/?$#', $path ) ) ) {
+			return;
+		}
+		wp_safe_redirect( trailingslashit( aip_reii_public_origin_v0561() . '/blog' ), 301, 'REii Commerce' );
 		exit;
 	}
 	if ( ! is_singular( 'post' ) ) {
@@ -101,8 +108,6 @@ function aip_reii_route_public_posts_v0561() {
 		exit;
 	}
 	if ( ! $is_reii && 'reii.techbyleon.com' === $host ) {
-		$request_uri = (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '/' );
-		$path        = wp_parse_url( $request_uri, PHP_URL_PATH );
 		$query       = wp_parse_url( $request_uri, PHP_URL_QUERY );
 		$destination = home_url( $path ? $path : '/' );
 		if ( $query ) {
@@ -258,7 +263,10 @@ function aip_reii_is_portal_request_v0596() {
 		return true;
 	}
 	$host = strtolower( (string) ( $_SERVER['HTTP_HOST'] ?? '' ) );
-	return ( 'reii.techbyleon.com' === $host );
+	$host = preg_replace( '/:\d+$/', '', $host );
+	$uri  = (string) ( $_SERVER['REQUEST_URI'] ?? '/' );
+	$path = wp_parse_url( $uri, PHP_URL_PATH );
+	return ( 'reii.techbyleon.com' === $host && ( '/' === $path || '' === $path ) );
 }
 
 function aip_reii_render_techbyleon_branding_v0599() {
