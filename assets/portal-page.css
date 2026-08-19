@@ -348,7 +348,7 @@ label.aip-storefront-addon-card,
     display: flex !important;
     flex-direction: row !important;
     align-items: flex-start !important;
-    gap: 14px !important;
+    gap: 0px !important;
 }
 
 /* Ensure the checkbox doesn't act like a float when flex is active */
