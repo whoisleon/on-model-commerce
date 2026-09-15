@@ -473,7 +473,7 @@
   }
 
   var aipAddons={
-    'amazon-storefront':{label:'Post to REii\u2019s Amazon Storefront',price:10},
+    'amazon-storefront':{label:'Post to REii\u2019s Amazon Storefront',price:20},
     'extra-environment':{label:'Extra environment',price:15},
     'another-version':{label:'Another version',price:15},
     'new-version':{label:'Another version',price:15,slug:'another-version'},
@@ -499,7 +499,7 @@
       var title=modal.querySelector('.aip-form-wrap h3');
       var intro=modal.querySelector('.aip-form-wrap>p');
       if(title)title.textContent=selected?'Add '+selected.label.toLowerCase():'Create your REii video';
-      if(intro)intro.textContent=selected?'Your $10 REii video plus '+selected.label.toLowerCase()+' (+$'+selected.price+'). Add your product details to continue.':'Add an Amazon link or upload your product files. Your $10 order includes one 10-second, AI-created influencer UGC video.';
+      if(intro)intro.textContent=selected?'Your $30 REii video plus '+selected.label.toLowerCase()+' (+$'+selected.price+'). Add your product details to continue.':'Add an Amazon link or upload your product files. Your $30 order includes one 10-second, AI-created influencer UGC video.';
     }
   }
 

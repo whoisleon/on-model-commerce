@@ -89,7 +89,7 @@ function aip_reii_stripe_api_request_v0559( $method, $path, $parameters = array(
 
 function aip_reii_stripe_offer_v0559( $addon ) {
 	$addons = array(
-		'amazon-storefront'  => array( 'label' => 'Post to REii’s Amazon Storefront', 'amount' => 1000 ),
+		'amazon-storefront'  => array( 'label' => 'Post to REii’s Amazon Storefront', 'amount' => 2000 ),
 		'extra-environment'  => array( 'label' => 'Extra environment', 'amount' => 1500 ),
 		'another-version'    => array( 'label' => 'Another version', 'amount' => 1500 ),
 		'20-second-story'    => array( 'label' => '20-second story', 'amount' => 1000 ),
@@ -98,7 +98,7 @@ function aip_reii_stripe_offer_v0559( $addon ) {
 	);
 	$selected = isset( $addons[ $addon ] ) ? $addons[ $addon ] : null;
 	return array(
-		'amount'      => 1000 + ( $selected ? $selected['amount'] : 0 ),
+		'amount'      => 3000 + ( $selected ? $selected['amount'] : 0 ),
 		'addon_label' => $selected ? $selected['label'] : '',
 	);
 }
@@ -215,7 +215,7 @@ function aip_reii_create_paid_order_v0559( $intake, $offer, $payment_intent, $se
 			$item->add_meta_data( 'Video add-on', $offer['addon_label'], true );
 		}
 		if ( 'amazon-storefront' === ( $intake['addon'] ?? '' ) ) {
-			$item->add_meta_data( 'Amazon Storefront', 'Yes (+$10)', true );
+			$item->add_meta_data( 'Amazon Storefront', 'Yes', true );
 		}
 		$item->save();
 	}
